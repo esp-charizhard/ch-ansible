@@ -1,3 +1,19 @@
 ---
 - name: Include Pre-reqs setup task
   ansible.builtin.include_tasks: pre_setup.yml
+
+- name: Include task to disable swap
+  ansible.builtin.include_tasks: disable_swap.yml
+
+- name: Include task to configure timezone and ntp
+  ansible.builtin.include_tasks: configure_timezone_ntp.yml
+
+- name: Include task to configure /etc/hosts file on each node
+  ansible.builtin.include_tasks: configure_etc_host_file.yml
+
+- name: Include task to configure docker
+  ansible.builtin.include_tasks: setup_docker.yml
+  when: container_runtime == "docker"
+
+- name: Include task to install  k8s packages
+  ansible.builtin.include_tasks: install_k8s_packages.yml
