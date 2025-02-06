@@ -1,0 +1,3 @@
+---
+- name: Include Pre-reqs setup task
+  ansible.builtin.include_tasks: pre_setup.yml

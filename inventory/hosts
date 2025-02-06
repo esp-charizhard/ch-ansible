@@ -1,3 +1,0 @@
-[k8snodes]
-k8smaster ansible_host=10.10.35.100 ansible_user=papyrus
-k8snode01 ansible_host=10.10.35.110 ansible_user=papyrus
