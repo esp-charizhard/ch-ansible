@@ -15,5 +15,4 @@
     enabled: true
 
 - name: Synchronize time manually
-  ansible.builtin.shell:  chronyc sources
-
+  ansible.builtin.shell: chronyc sources

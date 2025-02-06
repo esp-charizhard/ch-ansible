@@ -1,0 +1,3 @@
+---
+- name: Check dependecies
+  ansible.builtin.include_tasks: check_dependecies.yml

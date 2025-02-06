@@ -11,9 +11,9 @@
 
 - name: Install kubernetes packages
   ansible.builtin.apt:
-    name: [kubelet,kubeadm,kubectl]
+    name: [kubelet, kubeadm, kubectl]
 
 - name: Enable kubelet service
   ansible.builtin.service:
     name: kubelet
-    enabled: yes
+    enabled: true
