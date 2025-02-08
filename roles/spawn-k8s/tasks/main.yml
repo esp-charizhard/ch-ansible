@@ -1,4 +1,14 @@
 ---
+- name: Check if Kubernetes packages are already installed
+  command: dpkg -l | grep -E 'kubelet|kubectl|kubeadm'
+  register: k8s_packages_installed
+  failed_when: false
+
+- name: Check if Docker is already installed
+  command: docker --version
+  register: docker_installed
+  failed_when: false
+
 - name: Include Pre-reqs setup task
   ansible.builtin.include_tasks: pre_setup.yml
 
@@ -13,9 +23,18 @@
 
 - name: Include task to configure docker
   ansible.builtin.include_tasks: setup_docker.yml
-  when: container_runtime == "docker"
+  when: container_runtime == "docker" and docker_installed.rc != 0
 
-- name: Include task to install  k8s packages
+- name: Include task to configure containerd
+  ansible.builtin.include_tasks: setup_containerd.yml
+  when: container_runtime == "containerd"
+
+- name: Include task to install k8s packages
   ansible.builtin.include_tasks: install_k8s_packages.yml
+  when: k8s_packages_installed.stdout == ""
 
+# - name: Include task to configure ports
+#   ansible.builtin.include_tasks: configure_ports.yml
 
+- name: Include task to configure iptables
+  ansible.builtin.include_tasks: configure_iptables.yml

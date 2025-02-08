@@ -1,17 +1,20 @@
----
 - name: Initialize kubeadm
-  command: kubeadm init --apiserver-advertise-address={{ ansible_default_ipv4.address }} --control-plane-endpoint=cluster-endpoint --cri-socket=unix:///var/run/cri-dockerd.sock
+  become: true
+  command: kubeadm init --apiserver-advertise-address={{ ansible_default_ipv4.address }} --cri-socket=unix:///var/run/cri-dockerd.sock
 
-- name: Create kube directory
+- name: create kube directory
   file:
-    path: "{{ ansible_env.HOME }}/.kube"
+    path: $HOME/.kube
     state: directory
-    mode: '0755'
+    owner: root
 
-- name: Copy admin.conf to kube config
-  copy:
-    src: /etc/kubernetes/admin.conf
-    dest: "{{ ansible_env.HOME }}/.kube/config"
-    owner: "root"
-    group: "root"
-    mode: '0644'
+- name: copy admin.conf to .kube/config
+  shell: cat  /etc/kubernetes/admin.conf > $HOME/.kube/config
+
+- name: Run cluster by regular user
+  shell: sudo chown $(id -u):$(id -g) $HOME/.kube/config
+
+
+- name: Set Up Pod Network
+  become: true
+  shell: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml 

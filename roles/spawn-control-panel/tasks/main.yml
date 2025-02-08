@@ -5,5 +5,4 @@
 - name: Include task to launch kubeadm
   ansible.builtin.include_tasks: kubeadm_init.yml
 
-- name: Include task to install cni
-  ansible.builtin.include_tasks: install_cni.yml
+
