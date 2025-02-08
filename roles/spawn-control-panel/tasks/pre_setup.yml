@@ -1,0 +1,14 @@
+---
+- name: Check if the cluster endpoint line is present
+  ansible.builtin.command: grep -Fx "{{ cluster_endpoint }} cluster-endpoint" /etc/hosts
+  register: grep_result
+  ignore_errors: true
+
+- name: Adding cluster endpoint
+  ansible.builtin.lineinfile:
+    path: /etc/hosts
+    line:  "{{ cluster_endpoint }} cluster-endpoint"
+    owner: root
+    group: root
+    mode: '0644'
+    backup: yes

@@ -9,3 +9,4 @@ configure_firewalld: false                           # true / false (keep it fal
 setup_proxy: false                                   # Set to true to configure proxy
 proxy_server: "proxy.example.com:8080"               # Proxy server address and port
 docker_proxy_exclude: "localhost,127.0.0.1"          # Adresses to exclude from proxy
+cluster_endpoint: "localhost"                     # Potential endpoint for a load balancer when we have high availability (for now, it's the ip of master node)
