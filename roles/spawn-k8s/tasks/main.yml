@@ -33,8 +33,8 @@
   ansible.builtin.include_tasks: install_k8s_packages.yml
   when: k8s_packages_installed.stdout == ""
 
-# - name: Include task to configure ports
-#   ansible.builtin.include_tasks: configure_ports.yml
+- name: Include task to configure ports
+  ansible.builtin.include_tasks: configure_ports.yml
 
 - name: Include task to configure iptables
   ansible.builtin.include_tasks: configure_iptables.yml

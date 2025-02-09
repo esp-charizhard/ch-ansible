@@ -1,12 +1,11 @@
 ---
-- name: add port
-  ansible.posix.firewalld:
-    port: "{{ item }}/tcp"
-    permanent: true
-    state: enabled
+- name: Add port
+  become: true
+  shell: iptables -A INPUT -p tcp --dport {{ item }} -j ACCEPT
   with_items:
     - 6443
-    - 2379-2380
+    - 2379
+    - 2380
     - 10250
     - 10252
     - 10255

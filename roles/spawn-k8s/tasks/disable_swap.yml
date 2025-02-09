@@ -8,3 +8,7 @@
     path: /etc/fstab
     regexp: '^([^#].*?\sswap\s+.*)$'
     replace: '# \1'
+
+# - name: Desable SELINUX first step
+#   become: true
+#   shell: setenforce 0  && sed -i 's/^SELINUX=enforcing$/SELINUX=permissive/' /etc/selinux/config

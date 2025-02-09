@@ -3,3 +3,12 @@
   ansible.builtin.template:
     src: hosts.j2
     dest: /etc/hosts
+  become: true # Ensure privilege escalation if needed
+  register: hosts_updated
+
+- name: Restart networking service
+  ansible.builtin.service:
+    name: networking
+    state: restarted
+  become: true # Ensure privilege escalation if needed
+  when: hosts_updated.changed

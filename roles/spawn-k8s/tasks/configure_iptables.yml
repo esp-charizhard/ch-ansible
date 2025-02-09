@@ -1,4 +1,19 @@
 ---
+- name: Create modules-load.d configuration file
+  copy:
+    content: |
+      overlay
+      br_netfilter
+    dest: /etc/modules-load.d/containerd.conf
+    mode: '0644'
+
+- name: Load overlay and br_netfilter modules
+  modprobe:
+    name: "{{ item }}"
+  loop:
+    - overlay
+    - br_netfilter
+
 - name: Update iptable setting
   shell: |
     cat <<EOF > /etc/sysctl.d/k8s.conf
