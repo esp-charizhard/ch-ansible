@@ -2,18 +2,18 @@
   block:
     - name: create join_message.sh file
       file:
-        path: "$HOME/join_message.sh"
+        path: "/home/papyrus/join_message.sh"
         state: touch
     
     - name: Initialize kubeadm
       become: true
-      shell: kubeadm init --config /tmp/kubeadm/kubeadm-config.yml >> ~/join_message.sh
+      shell: kubeadm init --config /tmp/kubeadm/kubeadm-config.yml >>  /home/papyrus/join_message.sh
       register: join_message
 #      shell: kubeadm init --pod-network-cidr=10.244.0.0/16 --cri-socket=unix:///var/run/containerd/containerd.sock
 
     - name: create kube directory
       file:
-        path: $HOME/.kube
+        path:  $HOME/.kube
         state: directory
         owner: root
 
@@ -25,28 +25,29 @@
       become: true
       shell: chown $(id -u):$(id -g) $HOME/.kube/config
 
-    - name: Ensure kubectl context uses the correct server address
-      shell: |
-        kubectl config set-cluster default --server=https://{{ ansible_host }}:6443 --kubeconfig=/home/papyrus/.kube/config
-        kubectl config set-credentials kubernetes-admin --client-certificate=/etc/kubernetes/pki/apiserver.crt --client-key=/etc/kubernetes/pki/apiserver.key  --kubeconfig=/home/papyrus/.kube/config
-        kubectl config set-context default --cluster=default --user=kubernetes-admin  --kubeconfig=/home/papyrus/.kube/config
-        kubectl config use-context default  --kubeconfig=/home/papyrus/.kube/config
-      delegate_to: "{{ inventory_hostname }}" # delegate to localhost
+#    - name: Ensure kubectl context uses the correct server address
+#      shell: |
+#        kubectl config set-cluster default --server=https://{{ ansible_host }}:6443 --kubeconfig=/home/papyrus/.kube/config
+#        kubectl config set-context default --cluster=default --user=kubernetes-admin --namespace=default --kubeconfig=/home/papyrus/.kube/config
+#        kubectl config use-context default --kubeconfig=/home/papyrus/.kube/config
+#      delegate_to: "{{ inventory_hostname }}"
+
+
+    - name: Wait for API server to be ready
+      become: true
+      shell: kubectl cluster-info --kubeconfig=$HOME/.kube/config
+      register: cluster_info
+      until: cluster_info.rc == 0
+      retries: 5
+      delay: 10
+
   
     - name: Set Up Pod Network
       become: true
-      shell: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml --validate=false
+      shell: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
   rescue:
   - name: Clean up kubernetes setup
     block:
-      - name: Get logs
-        become: true
-        shell: cat ~/.kube/config
-        register: caca
-
-      - name: Show logs
-        debug: var=caca
-      
       - name: Reset kubeadm
         become: true
         shell: sudo kubeadm reset --cri-socket=unix:///var/run/containerd/containerd.sock -f
@@ -68,6 +69,14 @@
           state: absent
         register: k8s_dir_result
         failed_when: k8s_dir_result.failed
+      
+      - name: Remove join_message.sh
+        become: true
+        shell: rm /home/papyrus/join_message.sh
+      
+      - name: Remove kube config directory
+        become: true
+        shell: rm -rf $HOME/.kube/
 
     rescue:
       - name: Handle cleanup failure
