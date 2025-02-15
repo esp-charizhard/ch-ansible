@@ -1,7 +1,30 @@
-- name: Join worker node on master node
-  block:
-    - name: Join worker node on master node
-      shell: "{{ join_message }}"
-      become: true
-  rescue:
-    - name: Begin rescue 
+- name: Generate join token
+  shell: kubeadm token create --print-join-command
+  register: kubeadm_join_cmd
+  delegate_to: "{{ groups['master_nodes'][0] }}"
+
+- set_fact:
+    kubeadm_join: "{{ kubeadm_join_cmd.stdout }}"
+
+- debug:
+    var: kubeadm_join
+
+- name: Store join command
+  copy:
+    content: "{{ kubeadm_join }}"
+    dest: "/etc/kubernetes/kubeadm-join.command"
+
+- name: Run kubeadm join
+  shell: "{{ kubeadm_join }} --ignore-preflight-errors=swap"
+  become: true
+  register: join_result
+
+- name: Check if kubeadm join was successful
+  debug:
+    msg: "Join command executed successfully."
+  when: join_result.rc == 0
+
+- name: Handle kubeadm join failure
+  debug:
+    msg: "Failed to execute kubeadm join."
+  when: join_result.rc != 0

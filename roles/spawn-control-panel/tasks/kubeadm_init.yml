@@ -10,10 +10,6 @@
       shell: kubeadm init --config /tmp/kubeadm/kubeadm-config.yml >>  /home/papyrus/join_message.sh
       register: join_message
 
-    - name: Extract last two lines of stdout
-      set_fact:
-        last_two_lines: "{{ join_message.stdout_lines[-2:] | join('\n') }}"
-
     - name: create kube directory
       file:
         path:  $HOME/.kube
