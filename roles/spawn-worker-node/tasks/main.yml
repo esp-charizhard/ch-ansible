@@ -1,0 +1,3 @@
+---
+- name: Include task to join the master node
+  ansible.builtin.include_tasks: kubeadm_join.yml

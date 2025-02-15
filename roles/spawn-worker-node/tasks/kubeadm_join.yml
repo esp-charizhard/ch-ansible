@@ -1,0 +1,7 @@
+- name: Join worker node on master node
+  block:
+    - name: Join worker node on master node
+      shell: "{{ join_message }}"
+      become: true
+  rescue:
+    - name: Begin rescue 

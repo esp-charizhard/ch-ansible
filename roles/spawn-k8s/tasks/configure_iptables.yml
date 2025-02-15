@@ -22,4 +22,5 @@
     EOF
 
 - name: Update iptable setting
-  shell: sysctl --system
+  shell: sysctl -p
+  become: true

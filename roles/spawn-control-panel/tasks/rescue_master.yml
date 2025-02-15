@@ -1,0 +1,37 @@
+---
+- name: Clean up kubernetes setup
+  block:
+    - name: Reset kubeadm
+      become: true
+      shell: kubeadm reset --cri-socket=unix:///var/run/containerd/containerd.sock -f
+      register: reset_result
+      failed_when: reset_result.rc != 0
+
+    - name: Remove Docker directory
+      become: true
+      file:
+        path: /var/lib/docker
+        state: absent
+      register: docker_dir_result
+      failed_when: docker_dir_result.failed
+
+    - name: Remove Kubernetes directory
+      become: true
+      file:
+        path: /etc/kubernetes
+        state: absent
+      register: k8s_dir_result
+      failed_when: k8s_dir_result.failed
+    
+    - name: Remove join_message.sh
+      become: true
+      shell: rm /home/papyrus/join_message.sh
+    
+    - name: Remove kube config directory
+      become: true
+      shell: rm -rf $HOME/.kube/
+
+  rescue:
+    - name: Handle cleanup failure
+      debug:
+        msg: "Cleanup failed. Please manually inspect and clean up the system."

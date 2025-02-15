@@ -5,4 +5,3 @@
 - name: Include task to launch kubeadm
   ansible.builtin.include_tasks: kubeadm_init.yml
 
-
