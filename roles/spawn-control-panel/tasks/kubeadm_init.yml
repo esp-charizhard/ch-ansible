@@ -1,24 +1,22 @@
 - name: Setup Control Panel
   block:
-    - name: create join_message.sh file
-      file:
-        path: "/home/papyrus/join_message.sh"
-        state: touch
-    
     - name: Initialize kubeadm
       become: true
       shell: kubeadm init --config /tmp/kubeadm/kubeadm-config.yml >>  /home/papyrus/join_message.sh
       register: join_message
-
+     
     - name: create kube directory
       file:
         path:  $HOME/.kube
         state: directory
-        owner: root
+        mode: 0755
 
     - name: copy admin.conf to .kube/config
       become: true
-      shell: cat  /etc/kubernetes/admin.conf > $HOME/.kube/config
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: $HOME/.kube/config
+        remote_src: yes
 
     - name: Run cluster by regular user
       become: true
@@ -34,11 +32,12 @@
 
     - name: Wait for API server to be ready
       become: true
-      shell: kubectl cluster-info --kubeconfig=$HOME/.kube/config
+      shell: kubectl cluster-info
+      environment: "{{ kubeconfig_env }}"
       register: cluster_info
       until: cluster_info.rc == 0
       retries: 5
-      delay: 10
+      delay: 20
 
   
     - name: Set Up Pod Network

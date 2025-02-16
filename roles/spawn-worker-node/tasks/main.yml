@@ -1,3 +1,8 @@
 ---
-- name: Include task to join the master node
-  ansible.builtin.include_tasks: kubeadm_join.yml
+- name: Begin spawn-worker-node
+  block:
+    - name: Include task to join the master node
+      ansible.builtin.include_tasks: kubeadm_join.yml
+  rescue:
+    - name: Rescue worker node
+      ansible.builtin.include_tasks: rescue_worker.yml

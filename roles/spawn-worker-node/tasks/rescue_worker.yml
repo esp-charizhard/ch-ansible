@@ -1,11 +1,17 @@
 ---
-- name: Clean up kubernetes setup
+- name: Include clean master
+  block:
+    - include_role:
+        name: spawn-control-panel
+        tasks_from: rescue_master.yml
+  delegate_to: "{{ groups['master_nodes'][0] }}"
+
+- name: Clean up worker-spawn
   block:
     - name: Reset kubeadm
       become: true
       shell: kubeadm reset --cri-socket=unix:///var/run/containerd/containerd.sock -f
       register: reset_result
-      failed_when: reset_result.rc != 0
 
     - name: Remove Docker directory
       become: true
@@ -14,18 +20,6 @@
         state: absent
       register: docker_dir_result
       failed_when: docker_dir_result.failed
-
-    - name: Remove Kubernetes directory
-      become: true
-      file:
-        path: /etc/kubernetes
-        state: absent
-      register: k8s_dir_result
-      failed_when: k8s_dir_result.failed
-
-    - name: Remove kube config directory
-      become: true
-      shell: rm -rf $HOME/.kube/
 
   rescue:
     - name: Handle cleanup failure

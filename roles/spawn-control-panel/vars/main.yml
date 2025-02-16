@@ -1,0 +1,2 @@
+kubeconfig_env:
+  KUBECONFIG: /etc/kubernetes/admin.conf
