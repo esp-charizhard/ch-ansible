@@ -1,0 +1,4 @@
+---
+- name: Init nginx service
+  shell: kubectl expose pod nginx-pod --type=NodePort --port=80 --name=nginx-service
+  become: true

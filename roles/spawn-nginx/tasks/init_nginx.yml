@@ -1,0 +1,5 @@
+---
+- name: Init nginx Pod
+  shell: kubectl run nginx-pod --image=nginx --restart=Never --port=80 -n default
+  become: true
+

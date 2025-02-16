@@ -42,7 +42,7 @@
   
     - name: Set Up Pod Network
       become: true
-      shell: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/master/Documentation/kube-flannel.yml
+      shell: kubectl apply -f /tmp/kubeadm/kube-flannel.yml
   rescue:
     - name: Error while set up master, rescue
       ansible.builtin.include_tasks: rescue_master.yml

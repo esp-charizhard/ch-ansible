@@ -22,3 +22,13 @@
   template:
     src: test_config.yml
     dest: /tmp/kubeadm/kubeadm-config.yml
+
+- name: Copy flannel config
+  template:
+    src: kube-flannel.yml
+    dest: /tmp/kubeadm/kube-flannel.yml
+  
+- name: create crictl config file
+  template:
+    src: crictl.yml
+    dest: /etc/crictl.yml

@@ -3,6 +3,13 @@
   block:
     - name: Include task to join the master node
       ansible.builtin.include_tasks: kubeadm_join.yml
+
+#    - name: Include task to create nginx pod
+#      ansible.builtin.include_tasks: init_nginx.yml
+#
+#    - name: Include task to expose nginx service
+#      ansible.builtin.include_tasks: set_nginx_service.yml
+
   rescue:
     - name: Rescue worker node
       ansible.builtin.include_tasks: rescue_worker.yml
