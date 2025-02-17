@@ -43,4 +43,3 @@
     - k8snodes.yml
   roles:
     - spawn-nginx
-

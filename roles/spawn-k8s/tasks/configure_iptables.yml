@@ -14,6 +14,16 @@
     - overlay
     - br_netfilter
 
+- name: Enable IP forwarding
+  sysctl:
+    name: net.ipv4.ip_forward
+    value: 1
+    state: present
+    sysctl_set: yes
+    sysctl_file: /etc/sysctl.conf
+  become: true
+
+
 - name: Update iptable setting
   shell: |
     cat <<EOF > /etc/sysctl.d/k8s.conf
@@ -22,5 +32,5 @@
     EOF
 
 - name: Update iptable setting
-  shell: sysctl -p
+  shell: sysctl -p /etc/sysctl.d/k8s.conf
   become: true

@@ -18,12 +18,8 @@ bootstrapTokens:
       - system:bootstrappers:kubeadm:default-node-token
 
 nodeRegistration:
-  name: "ec2-10-100-0-1"
+  name: "test-control-panel"
   criSocket: "unix:///var/run/containerd/containerd.sock"
-  taints:
-    - key: "kubeadmNode"
-      value: "someValue"
-      effect: "NoSchedule"
   kubeletExtraArgs:
     - name: v
       value: "5"

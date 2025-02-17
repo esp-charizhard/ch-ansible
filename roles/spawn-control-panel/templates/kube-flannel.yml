@@ -1,4 +1,3 @@
----
 kind: Namespace
 apiVersion: v1
 metadata:
@@ -90,7 +89,7 @@ data:
     }
   net-conf.json: |
     {
-      "Network": "10.10.36.0/24",
+      "Network": "{{ pod_network_cidr }}",
       "EnableNFTables": false,
       "Backend": {
         "Type": "vxlan"

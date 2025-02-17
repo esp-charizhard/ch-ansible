@@ -2,25 +2,31 @@
   block:
     - name: Initialize kubeadm
       become: true
-      shell: kubeadm init --config /tmp/kubeadm/kubeadm-config.yml >>  /home/papyrus/join_message.sh
+      shell: kubeadm init --config /tmp/kubeadm/kubeadm-config.yml
       register: join_message
      
-    - name: create kube directory
-      file:
-        path:  $HOME/.kube
+    - name: Create kube home config folder
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/.kube"
         state: directory
-        mode: 0755
-
+        mode: "755"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+  
     - name: copy admin.conf to .kube/config
       become: true
       copy:
         src: /etc/kubernetes/admin.conf
-        dest: $HOME/.kube/config
-        remote_src: yes
+        dest: "/home/{{ ansible_user }}/.kube/config"
+        remote_src: true
 
-    - name: Run cluster by regular user
+    - name: Change owner of conf to user
       become: true
-      shell: chown $(id -u):$(id -g) $HOME/.kube/config
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/.kube/config"
+        state: file
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
 
 #    - name: Ensure kubectl context uses the correct server address
 #      shell: |
@@ -32,8 +38,7 @@
 
     - name: Wait for API server to be ready
       become: true
-      shell: kubectl cluster-info
-      environment: "{{ kubeconfig_env }}"
+      shell: kubectl cluster-info --kubeconfig=/home/{{ ansible_user }}/.kube/config
       register: cluster_info
       until: cluster_info.rc == 0
       retries: 5
@@ -42,7 +47,7 @@
   
     - name: Set Up Pod Network
       become: true
-      shell: kubectl apply -f /tmp/kubeadm/kube-flannel.yml
+      shell: kubectl apply -f /tmp/kubeadm/kube-flannel.yml --kubeconfig=/home/{{ ansible_user }}/.kube/config
   rescue:
     - name: Error while set up master, rescue
       ansible.builtin.include_tasks: rescue_master.yml

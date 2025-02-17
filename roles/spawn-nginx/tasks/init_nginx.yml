@@ -1,5 +1,7 @@
 ---
 - name: Init nginx Pod
   shell: kubectl run nginx-pod --image=nginx --restart=Never --port=80 -n default
-  become: true
-
+  register: init_nginx
+  until: init_nginx.rc == 0
+  retries: 5
+  delay: 20

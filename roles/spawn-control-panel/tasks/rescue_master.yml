@@ -25,7 +25,9 @@
 
     - name: Remove kube config directory
       become: true
-      shell: rm -rf $HOME/.kube/
+      file:
+        path: /home/{{ ansible_user }}/.kube
+        state: absent
 
   rescue:
     - name: Handle cleanup failure
