@@ -1,7 +1,7 @@
 ---
 k8s_version: "1.32"                                  # Kubernetes version to be installed
 timezone: "Europe/London"                            # Timezone to set on all nodes
-k8s_cni: calico                                      # calico, flannel
+k8s_cni: flannel                                      # calico, flannel
 container_runtime: containerd                        # docker, cri-o, containerd 
 pod_network_cidr: "10.244.0.0/16"                    # to modif to match subnet of proxmox
 configure_firewalld: false                           # true / false (keep it false, k8s>1.19 have issues with firewalld)

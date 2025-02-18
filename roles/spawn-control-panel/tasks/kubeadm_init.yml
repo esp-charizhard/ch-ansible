@@ -2,7 +2,7 @@
   block:
     - name: Initialize kubeadm
       become: true
-      shell: kubeadm init --config /tmp/kubeadm/kubeadm-config.yml
+      shell: kubeadm init --pod-network-cidr=10.244.0.0/16
       register: join_message
      
     - name: Create kube home config folder

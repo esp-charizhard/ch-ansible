@@ -1,0 +1,14 @@
+- name: Clean Worker node
+  hosts: worker_nodes
+  become: true
+  become_method: ansible.builtin.sudo
+  vars:
+    ansible_ssh_private_key_file: ~/.ssh/ansible
+  vars_files:
+    - k8snodes.yml
+  tasks:
+    - name: Clean worker_node
+      block:
+        - include_role:
+            name: spawn-worker-node
+            tasks_from: rescue_worker.yml
