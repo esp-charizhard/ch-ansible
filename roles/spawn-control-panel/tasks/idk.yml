@@ -1,7 +1,8 @@
 - name: Disable iptables localhost nodeports
   shell: |
     kubectl --kubeconfig=/home/{{ ansible_user }}/.kube/config get daemonset kube-proxy -n kube-system -o yaml | sed 's/iptables-localhost-nodeports: true/iptables-localhost-nodeports: false/' | kubectl --kubeconfig=/home/{{ ansible_user }}/.kube/config apply -f -
-
+# TODO: put env var 
 - name: Set nodeport addresses
   shell: |
     kubectl --kubeconfig=/home/{{ ansible_user }}/.kube/config get daemonset kube-proxy -n kube-system -o yaml | sed 's/nodeport-addresses: \[\]/nodeport-addresses: ["<primary-node-ip>"]/' | kubectl  --kubeconfig=/home/{{ ansible_user }}/.kube/config apply -f -
+# TODO: put env var 

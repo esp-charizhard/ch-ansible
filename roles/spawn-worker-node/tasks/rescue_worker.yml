@@ -21,6 +21,18 @@
       register: docker_dir_result
       failed_when: docker_dir_result.failed
 
+    - name: Remove cni directory
+      become: true
+      file:
+        path: /etc/cni/net.d
+        state: absent
+  
+    - name: Remove etcd directory
+      become: true
+      file:
+        path: /var/lib/etcd
+        state: absent
+  
   rescue:
     - name: Handle cleanup failure
       debug:

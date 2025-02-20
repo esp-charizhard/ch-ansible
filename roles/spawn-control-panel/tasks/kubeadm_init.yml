@@ -2,7 +2,7 @@
   block:
     - name: Initialize kubeadm
       become: true
-      shell: kubeadm init --pod-network-cidr=10.244.0.0/16
+      shell: kubeadm init --config /tmp/kubeadm/kubeadm-config.yml
       register: join_message
      
     - name: Create kube home config folder
@@ -28,17 +28,9 @@
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
 
-#    - name: Ensure kubectl context uses the correct server address
-#      shell: |
-#        kubectl config set-cluster default --server=https://{{ ansible_host }}:6443 --kubeconfig=/home/papyrus/.kube/config
-#        kubectl config set-context default --cluster=default --user=kubernetes-admin --namespace=default --kubeconfig=/home/papyrus/.kube/config
-#        kubectl config use-context default --kubeconfig=/home/papyrus/.kube/config
-#      delegate_to: "{{ inventory_hostname }}"
-
-
     - name: Wait for API server to be ready
       become: true
-      shell: kubectl cluster-info --kubeconfig=/home/{{ ansible_user }}/.kube/config
+      shell: kubectl cluster-info --kubeconfig=/home/{{ ansible_user }}/.kube/config # TODO: put env var 
       register: cluster_info
       until: cluster_info.rc == 0
       retries: 5
@@ -47,7 +39,7 @@
   
     - name: Set Up Pod Network
       become: true
-      shell: kubectl apply -f /tmp/kubeadm/kube-flannel.yml --kubeconfig=/home/{{ ansible_user }}/.kube/config
+      shell: kubectl apply -f /tmp/kubeadm/kube-flannel.yml --kubeconfig=/home/{{ ansible_user }}/.kube/config # TODO: put env var 
   rescue:
     - name: Error while set up master, rescue
       ansible.builtin.include_tasks: rescue_master.yml

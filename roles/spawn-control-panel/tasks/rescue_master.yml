@@ -28,6 +28,18 @@
       file:
         path: /home/{{ ansible_user }}/.kube
         state: absent
+    
+    - name: Remove cni directory
+      become: true
+      file:
+        path: /etc/cni/net.d
+        state: absent
+    
+    - name: Remove etcd directory
+      become: true
+      file:
+        path: /var/lib/etcd
+        state: absent
 
   rescue:
     - name: Handle cleanup failure

@@ -39,6 +39,13 @@
         replace: 'SystemdCgroup = true'
       when: containerd_default_config.stdout.find('SystemdCgroup = false') != -1
 
+    - name: Test Set stuff in config containerd
+      ansible.builtin.replace:
+        path: /etc/containerd/config.toml
+        regexp: 'sandbox_image = "registry.k8s.io/pause:3.8"'
+        replace: 'sandbox_image = "registry.k8s.io/pause:3.10"'
+      when: containerd_default_config.stdout.find('SystemdCgroup = false') != -1
+    
     - name: Ensure /etc/containerd/config.toml exists
       ansible.builtin.copy:
         content: "{{ containerd_default_config.stdout }}"
