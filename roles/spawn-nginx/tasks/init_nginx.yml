@@ -1,6 +1,6 @@
 ---
 - name: Init nginx Pod
-  shell: kubectl --kubeconfig=/home/{{ ansible_user }}/.kube/config run nginx-pod --image=nginx --restart=Always --port=80 -n default
+  shell: kubectl --kubeconfig=/home/{{ ansible_user }}/.kube/config apply -f https://k8s.io/examples/service/load-balancer-example.yaml
   register: init_nginx
   until: init_nginx.rc == 0
   retries: 5

@@ -1,47 +1,109 @@
 ---
-- name: Clean up kubernetes setup
+- name: Clean up Kubernetes Node (snowdin)
+  become: true
+
   block:
+    - name: Drain node (snowdin)
+      shell: kubectl drain snowdin --ignore-daemonsets --delete-emptydir-data --force --kubeconfig=/home/{{ ansible_user }}/.kube/config
+      ignore_errors: true
+      run_once: true #Only run from one host
+      delegate_to: "{{ groups['master_nodes'][0] }}"
+
+    - name: Stop kubelet service
+      systemd:
+        name: kubelet
+        state: stopped
+        enabled: no
+      ignore_errors: true
+
+    - name: Stop containerd service
+      systemd:
+        name: containerd
+        state: stopped
+        enabled: no
+      ignore_errors: true
+
     - name: Reset kubeadm
-      become: true
       shell: kubeadm reset --cri-socket=unix:///var/run/containerd/containerd.sock -f
       register: reset_result
-      failed_when: reset_result.rc != 0
+      ignore_errors: true
+      # failed_when: reset_result.rc != 0 #Removing this to ignore kubeadm reset failure
+#
+#    - name: Set ip links down for cni
+#      become: true
+#      shell: ip link set cni0 down && ip link delete cni0
+#
+    - name: Remove Kubernetes directories
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/kubelet
+        - /etc/kubernetes
+        - /home/{{ ansible_user }}/.kube #Added ansible_user variable dependency on this directory
+        - /etc/cni/net.d
+        - /var/lib/etcd
+        - /var/lib/dockershim
+        - /var/run/kubernetes
+        - /var/lib/cni
+        - /opt/cni/bin   #Added as it is commonly used for CNI plugins
 
-    - name: Remove Docker directory
-      become: true
+    - name: Remove containerd state
+      file:
+        path: /var/lib/containerd
+        state: absent
+      ignore_errors: true
+
+    - name: Remove Docker directory (if used)
       file:
         path: /var/lib/docker
         state: absent
       register: docker_dir_result
-      failed_when: docker_dir_result.failed
+      ignore_errors: true
+      #Removing failed_when, it's not a failure if it does not exists
 
-    - name: Remove Kubernetes directory
-      become: true
-      file:
-        path: /etc/kubernetes
-        state: absent
-      register: k8s_dir_result
-      failed_when: k8s_dir_result.failed
+    - name: Remove iptables rules
+      shell: iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X
+      ignore_errors: true
 
-    - name: Remove kube config directory
-      become: true
-      file:
-        path: /home/{{ ansible_user }}/.kube
+    - name: Remove IP forwarding settings
+      sysctl:
+        name: net.bridge.bridge-nf-call-iptables
+        value: '0'
         state: absent
-    
-    - name: Remove cni directory
-      become: true
+      ignore_errors: true
+
+    - name: Clean up any remaining flannel artifacts
       file:
-        path: /etc/cni/net.d
+        path: /run/flannel/subnet.env
         state: absent
-    
-    - name: Remove etcd directory
-      become: true
-      file:
-        path: /var/lib/etcd
-        state: absent
+      ignore_errors: true
+
+    - name: Restart containerd
+      systemd:
+        name: containerd
+        state: restarted
+      ignore_errors: true
+
+    - name: Start kubelet service
+      systemd:
+        name: kubelet
+        state: started
+        enabled: yes
+      ignore_errors: true
+
+    - name: Reboot node (snowdin)
+      reboot:
+        reboot_timeout: 600
+      ignore_errors: true
+
+    - name: Wait for node (snowdin) to come back online
+      wait_for_connection:
+        delay: 60
+        timeout: 300
+      ignore_errors: true
 
   rescue:
     - name: Handle cleanup failure
       debug:
-        msg: "Cleanup failed. Please manually inspect and clean up the system."
+        msg: "Cleanup failed. Please manually inspect and clean up the system on node snowdin. Check disk space, network configuration, and Kubernetes component logs."

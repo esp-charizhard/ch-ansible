@@ -13,6 +13,15 @@
   ansible.builtin.apt:
     name: [kubelet, kubeadm, kubectl]
 
+- name: Create /etc/kubernetes
+  become: true
+  ansible.builtin.file:
+    path: "etc/kubernetes"
+    state: directory
+    mode: "755"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+
 - name: Enable kubelet service
   ansible.builtin.service:
     name: kubelet

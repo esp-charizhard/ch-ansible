@@ -1,12 +1,12 @@
 ---
 - name: Init nginx service
-  shell: kubectl --kubeconfig=/home/{{ ansible_user }}/.kube/config expose pod nginx-pod --type=NodePort --port=80 --name=nginx-service
+  shell: kubectl --kubeconfig=/home/{{ ansible_user }}/.kube/config expose deployment hello-world --type=LoadBalancer --name=my-service
 # TODO: put env var 
 - name: Get node IP and port
-  shell: kubectl --kubeconfig=/home/{{ ansible_user }}/.kube/config get svc nginx-service -o jsonpath='{.spec.ports[0].nodePort}'
+  shell: kubectl --kubeconfig=/home/{{ ansible_user }}/.kube/config  get services my-service
   register: node_port
 # TODO: put env var 
 - name: Get node IP
-  shell: kubectl --kubeconfig=/home/{{ ansible_user }}/.kube/config get nodes -o jsonpath='{.items[0].status.addresses[0].address}'
+  shell: kubectl --kubeconfig=/home/{{ ansible_user }}/.kube/config describe services my-service
   register: node_ip
 # TODO: put env var 

@@ -39,7 +39,10 @@
   
     - name: Set Up Pod Network
       become: true
-      shell: kubectl apply -f /tmp/kubeadm/kube-flannel.yml --kubeconfig=/home/{{ ansible_user }}/.kube/config # TODO: put env var 
+      shell: kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml --kubeconfig=/home/{{ ansible_user }}/.kube/config # TODO: put env var 
+      register: flannel_install
+    
+
   rescue:
     - name: Error while set up master, rescue
       ansible.builtin.include_tasks: rescue_master.yml

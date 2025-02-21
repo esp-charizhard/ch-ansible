@@ -6,34 +6,93 @@
         tasks_from: rescue_master.yml
   delegate_to: "{{ groups['master_nodes'][0] }}"
 
-- name: Clean up worker-spawn
+- name: Clean up worker-spawn node (snowdin)
   block:
+    - name: Drain node (snowdin)
+      become: true
+      shell: kubectl drain snowdin --ignore-daemonsets --delete-emptydir-data --force --kubeconfig=/home/{{ ansible_user }}/.kube/config
+      ignore_errors: true  # Continue even if drain fails
+
+    - name: Stop kubelet service
+      become: true
+      systemd:
+        name: kubelet
+        state: stopped
+        enabled: no
+
     - name: Reset kubeadm
       become: true
       shell: kubeadm reset --cri-socket=unix:///var/run/containerd/containerd.sock -f
       register: reset_result
+      ignore_errors: true #Reset can fail sometimes
+    
+#    - name: Set ip links down for cni
+#      become: true
+#      shell: ip link set cni0 down && ip link delete cni0
 
-    - name: Remove Docker directory
+    - name: Remove Kubernetes directories
+      become: true
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - /var/lib/kubelet
+        - /etc/kubernetes
+        - /etc/cni/net.d
+        - /var/lib/etcd
+        - /var/lib/dockershim  #Might not exist, but good to try
+        - /var/run/kubernetes #Remove runtime files
+        - /var/lib/cni
+
+    - name: Remove containerd state
+      become: true
+      file:
+        path: /var/lib/containerd
+        state: absent
+
+    - name: Remove Docker directory (if used)
       become: true
       file:
         path: /var/lib/docker
         state: absent
       register: docker_dir_result
-      failed_when: docker_dir_result.failed
+      failed_when: docker_dir_result.failed and "'Could not find or access '/var/lib/docker'' not in docker_dir_result.msg" #Only fail if it truly fails beyond not finding it.
+      ignore_errors: true #Docker might not be used.
 
-    - name: Remove cni directory
+    - name: Remove iptables rules
       become: true
-      file:
-        path: /etc/cni/net.d
-        state: absent
-  
-    - name: Remove etcd directory
+      shell: iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X
+      ignore_errors: true  #iptables might not be running
+
+    - name: Remove IP forwarding settings
       become: true
-      file:
-        path: /var/lib/etcd
+      sysctl:
+        name: net.bridge.bridge-nf-call-iptables
+        value: '0'
         state: absent
-  
+      ignore_errors: true
+    
+
+
+
+
+    - name: Restart containerd
+      become: true
+      systemd:
+        name: containerd
+        state: restarted
+
   rescue:
     - name: Handle cleanup failure
       debug:
-        msg: "Cleanup failed. Please manually inspect and clean up the system."
+        msg: "Cleanup failed. Please manually inspect and clean up the system on node snowdin."
+
+- name: Reboot node (snowdin)
+  become: true
+  reboot:
+    reboot_timeout: 600
+
+- name: Wait for node (snowdin) to come back online
+  wait_for_connection:
+    delay: 60
+    timeout: 300

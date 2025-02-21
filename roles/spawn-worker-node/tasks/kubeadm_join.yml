@@ -2,19 +2,18 @@
   shell: kubeadm token create --print-join-command
   register: kubeadm_join_cmd
   delegate_to: "{{ groups['master_nodes'][0] }}"
-# 
-# - name: Get CA certificate hash
-#   delegate_to: "{{ groups['master_nodes'][0] }}"
-#   community.crypto.x509_certificate_info:
-#     path: /etc/kubernetes/pki/ca.crt
-#   register: discovery_token
 
 - set_fact:
     kubeadm_join: "{{ kubeadm_join_cmd.stdout }}"
-#    ca_token: "{{ discovery_token.stdout }}"
 
-- debug:
-    var: kubeadm_join
+- name: Create /etc/kubernetes directory
+  become: true
+  ansible.builtin.file:
+    path: "/etc/kubernetes"
+    state: directory
+    mode: "0755"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
 
 - name: Store join command
   copy:
@@ -22,7 +21,6 @@
     dest: "/etc/kubernetes/kubeadm-join.command"
 
 - name: Run kubeadm join
-  # shell: "{{ kubeadm_join }} --ignore-preflight-errors=swap --discovery-token-ca-cert-hash {{ ca_token }}"
   shell: "{{ kubeadm_join }} --ignore-preflight-errors=swap"
   become: true
   register: join_result
