@@ -37,3 +37,6 @@
 
 - name: Include task to configure iptables
   ansible.builtin.include_tasks: configure_iptables.yml
+
+- name: Include task to install cni binaries
+  ansible.builtin.include_tasks: cni_binaries.yml

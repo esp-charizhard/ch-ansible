@@ -1,8 +1,6 @@
 ---
 basic_packages:
   - vim
-  - vim-doc
-  - vim-scripts
   - bash-completion
   - wget
   - curl
