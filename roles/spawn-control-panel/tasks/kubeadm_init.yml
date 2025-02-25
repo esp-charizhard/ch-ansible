@@ -39,7 +39,7 @@
   
     - name: Set Up Pod Network
       become: true
-      shell: kubectl apply -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml --kubeconfig=/home/{{ ansible_user }}/.kube/config # TODO: put env var 
+      shell: kubectl create -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml --kubeconfig=/home/{{ ansible_user }}/.kube/config # TODO: put env var 
       register: flannel_install
     
 

@@ -9,6 +9,14 @@
   register: docker_installed
   failed_when: false
 
+- name: Check if flannel binaries are installed
+  shell: ls -l /opt/cni/bin
+  become: true
+  register: flannel_bin_installed
+  changed_when: false
+  failed_when: false
+
+
 - name: Include Pre-reqs setup task
   ansible.builtin.include_tasks: pre_setup.yml
 
@@ -40,3 +48,4 @@
 
 - name: Include task to install cni binaries
   ansible.builtin.include_tasks: cni_binaries.yml
+  when: flannel_bin_installed.rc != 0

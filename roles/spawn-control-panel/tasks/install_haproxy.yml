@@ -1,0 +1,21 @@
+- name: Install packages
+  become: true
+  ansible.builtin.apt:
+    name:
+      - haproxy
+    state: present
+
+- name: Copy haproxy config
+  become: true
+  ansible.builtin.copy:
+    src: haproxy.cfg
+    dest: /etc/haproxy/haproxy.cfg
+    mode: "0644"
+    owner: root
+    group: root
+  
+- name: Restart Service
+  become: true
+  ansible.builtin.service:
+    name: haproxy
+    state: restarted

@@ -1,0 +1,41 @@
+listen stats
+    bind *:9000
+    mode http
+    stats enable
+    stats hide-version
+    stats uri /stats
+    stats refresh 30s
+    stats realm Haproxy\ Statistics
+    stats auth Admin:<votre mot de passe>
+    timeout client 100s
+    timeout server 100s
+    timeout connect 100s
+
+
+global
+    daemon
+    maxconn 256
+
+defaults
+    mode http
+    log global
+    option redispatch
+    retries 3
+    timeout connect 5000ms
+    timeout client 50000ms
+    timeout server 50000ms
+
+
+frontend kubernetes-frontend
+    bind *:6443
+    option tcplog
+    mode tcp
+    default_backend kubernetes-backend
+
+backend kubernetes-backend
+    mode tcp
+    balance roundrobin
+    option tcp-check
+    {% for host in cplanes %}
+server kube_api{{loop.index}} {{ hostvars[host]["private_ip_address"] }}:6443 check
+    {% endfor %}
