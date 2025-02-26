@@ -1,20 +1,22 @@
 ---
 - name: Check if Kubernetes packages are already installed
-  command: dpkg -l | grep -E 'kubelet|kubectl|kubeadm'
+  ansible.builtin.command: dpkg -l | grep -E 'kubelet|kubectl|kubeadm'
   register: k8s_packages_installed
   failed_when: false
+  changed_when: false
 
 - name: Check if Docker is already installed
-  command: docker --version
+  ansible.builtin.command: docker --version
   register: docker_installed
   failed_when: false
-
-- name: Check if flannel binaries are installed
-  shell: ls -l /opt/cni/bin
-  become: true
-  register: flannel_bin_installed
   changed_when: false
-  failed_when: false
+
+# - name: Check if flannel binaries are installed
+#   shell: ls -l /opt/cni/bin
+#   become: true
+#   register: flannel_bin_installed
+#   changed_when: false
+#   failed_when: false
 
 
 - name: Include Pre-reqs setup task
@@ -29,16 +31,13 @@
 - name: Include task to configure /etc/hosts file on each node
   ansible.builtin.include_tasks: configure_etc_host_file.yml
 
-- name: Include task to configure docker
-  ansible.builtin.include_tasks: setup_docker.yml
-  when: container_runtime == "docker" and docker_installed.rc != 0
-
 - name: Include task to configure containerd
   ansible.builtin.include_tasks: setup_containerd.yml
   when: container_runtime == "containerd"
 
 - name: Include task to install k8s packages
   ansible.builtin.include_tasks: install_k8s_packages.yml
+  when: k8s_packages_installed.rc != 0
 
 - name: Include task to configure ports
   ansible.builtin.include_tasks: configure_ports.yml
@@ -46,6 +45,6 @@
 - name: Include task to configure iptables
   ansible.builtin.include_tasks: configure_iptables.yml
 
-- name: Include task to install cni binaries
-  ansible.builtin.include_tasks: cni_binaries.yml
-  when: flannel_bin_installed.rc != 0
+# - name: Include task to install cni binaries
+#   ansible.builtin.include_tasks: cni_binaries.yml
+#   when: flannel_bin_installed.rc != 0

@@ -1,36 +1,35 @@
 ---
 - name: Create modules-load.d configuration file
-  copy:
+  ansible.builtin.copy:
     content: |
       overlay
       br_netfilter
     dest: /etc/modules-load.d/containerd.conf
-    mode: '0644'
+    mode: "0644"
 
 - name: Load overlay and br_netfilter modules
-  modprobe:
+  community.general.modprobe:
     name: "{{ item }}"
   loop:
     - overlay
     - br_netfilter
 
 - name: Enable IP forwarding
-  sysctl:
+  ansible.posix.sysctl:
     name: net.ipv4.ip_forward
     value: 1
     state: present
-    sysctl_set: yes
+    sysctl_set: true
     sysctl_file: /etc/sysctl.conf
   become: true
 
-
 - name: Update iptable setting
-  shell: |
+  ansible.builtin.shell: |
     cat <<EOF > /etc/sysctl.d/k8s.conf
     net.bridge.bridge-nf-call-ip6tables = 1
     net.bridge.bridge-nf-call-iptables = 1
     EOF
-
 - name: Update iptable setting
-  shell: sysctl -p /etc/sysctl.d/k8s.conf
+  ansible.builtin.command: sysctl -p /etc/sysctl.d/k8s.conf
   become: true
+  changed_when: true

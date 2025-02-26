@@ -12,4 +12,3 @@
     state: present
     update_cache: true
   loop: "{{ basic_packages }}"
-

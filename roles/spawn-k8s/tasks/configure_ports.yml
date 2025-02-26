@@ -1,7 +1,7 @@
 ---
 - name: Add port
   become: true
-  shell: iptables -A INPUT -p tcp --dport {{ item }} -j ACCEPT
+  ansible.builtin.command: iptables -A INPUT -p tcp --dport {{ item }} -j ACCEPT
   with_items:
     - 6443
     - 2379
@@ -10,3 +10,4 @@
     - 10252
     - 10255
     - 10251
+  changed_when: false

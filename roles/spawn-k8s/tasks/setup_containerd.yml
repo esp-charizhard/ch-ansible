@@ -1,3 +1,4 @@
+---
 - name: Add Docker's official GPG key
   ansible.builtin.apt_key:
     url: https://download.docker.com/linux/ubuntu/gpg
@@ -23,38 +24,38 @@
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
+    owner: root
+    mode: "755"
   with_items:
     - /etc/containerd
 
-- name: Configure containerd with SystemdCgroup
-  block:
-    - name: Generate default containerd config
-      ansible.builtin.command: containerd config default
-      register: containerd_default_config
+- name: Generate default containerd config
+  ansible.builtin.command: containerd config default
+  register: containerd_default_config
+  changed_when: false
 
-    - name: Set SystemdCgroup to true in containerd config
-      ansible.builtin.replace:
-        path: /etc/containerd/config.toml
-        regexp: 'SystemdCgroup = false'
-        replace: 'SystemdCgroup = true'
-      when: containerd_default_config.stdout.find('SystemdCgroup = false') != -1
+- name: Set SystemdCgroup to true in containerd config
+  ansible.builtin.replace:
+    path: /etc/containerd/config.toml
+    regexp: "SystemdCgroup = false"
+    replace: "SystemdCgroup = true"
+  when: containerd_default_config.stdout.find('SystemdCgroup = false') != -1
 
-    - name: Test Set stuff in config containerd
-      ansible.builtin.replace:
-        path: /etc/containerd/config.toml
-        regexp: 'sandbox_image = "registry.k8s.io/pause:3.8"'
-        replace: 'sandbox_image = "registry.k8s.io/pause:3.10"'
-      when: containerd_default_config.stdout.find('SystemdCgroup = false') != -1
-    
-    - name: Ensure /etc/containerd/config.toml exists
-      ansible.builtin.copy:
-        content: "{{ containerd_default_config.stdout }}"
-        dest: /etc/containerd/config.toml
-        owner: root
-        group: root
-        mode: '0644'
-      when: not (lookup('file', '/etc/containerd/config.toml', errors='ignore') or "")
+- name: Test Set stuff in config containerd
+  ansible.builtin.replace:
+    path: /etc/containerd/config.toml
+    regexp: 'sandbox_image = "registry.k8s.io/pause:3.8"'
+    replace: 'sandbox_image = "registry.k8s.io/pause:3.10"'
+  when: containerd_default_config.stdout.find('SystemdCgroup = false') != -1
 
+- name: Ensure /etc/containerd/config.toml exists
+  ansible.builtin.copy:
+    content: "{{ containerd_default_config.stdout }}"
+    dest: /etc/containerd/config.toml
+    owner: root
+    group: root
+    mode: "0644"
+  when: not (lookup('file', '/etc/containerd/config.toml', errors='ignore') or "")
 
 - name: Start and enable containerd service
   ansible.builtin.systemd:
@@ -62,4 +63,3 @@
     state: restarted
     enabled: true
     daemon_reload: true
-

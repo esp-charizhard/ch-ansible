@@ -3,8 +3,11 @@
   ansible.builtin.template:
     src: hosts.j2
     dest: /etc/hosts
+    owner: root
+    mode: "755"
   become: true # Ensure privilege escalation if needed
   register: hosts_updated
+  changed_when: true
 
 - name: Restart networking service
   ansible.builtin.service:
@@ -12,3 +15,4 @@
     state: restarted
   become: true # Ensure privilege escalation if needed
   when: hosts_updated.changed
+
