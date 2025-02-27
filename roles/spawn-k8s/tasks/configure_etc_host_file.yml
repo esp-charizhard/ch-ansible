@@ -11,8 +11,7 @@
 
 - name: Restart networking service
   ansible.builtin.service:
-    name: networking
+    name: systemd-networkd
     state: restarted
-  become: true # Ensure privilege escalation if needed
+  become: true
   when: hosts_updated.changed
-

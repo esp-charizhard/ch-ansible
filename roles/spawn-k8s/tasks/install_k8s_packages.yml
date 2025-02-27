@@ -16,7 +16,7 @@
 - name: Create /etc/kubernetes
   become: true
   ansible.builtin.file:
-    path: "etc/kubernetes"
+    path: "/etc/kubernetes"
     state: directory
     mode: "755"
     owner: "{{ ansible_user }}"

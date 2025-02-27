@@ -3,9 +3,8 @@
   hosts: k8snodes
   become: true
   become_method: ansible.builtin.sudo
-  # gather_facts: no
   vars:
-    ansible_ssh_private_key_file: ~/.ssh/ansible
+    ansible_python_interpreter: /usr/bin/python3
   vars_files:
     - k8snodes.yml
   roles:
@@ -16,30 +15,30 @@
   become: true
   become_method: ansible.builtin.sudo
   vars:
-    ansible_ssh_private_key_file: ~/.ssh/ansible
+    ansible_python_interpreter: /usr/bin/python3
   vars_files:
     - k8snodes.yml
   roles:
     - spawn-control-panel
 
-# - name: Prepare Worker Node (test / not high availability)
-#   hosts: worker_nodes
-#   become: true
-#   become_method: ansible.builtin.sudo
-#   vars:
-#     ansible_ssh_private_key_file: ~/.ssh/ansible
-#   vars_files:
-#     - k8snodes.yml
-#   roles:
-#     - spawn-worker-node
-# 
-# - name: Little nginx deployement
-#   hosts: snowdin
-#   become: true
-#   become_method: ansible.builtin.sudo
-#   vars:
-#     ansible_ssh_private_key_file: ~/.ssh/ansible
-#   vars_files:
-#     - k8snodes.yml
-#   roles:
-#     - spawn-nginx
+- name: Prepare Worker Node (test / not high availability)
+  hosts: worker_nodes
+  become: true
+  become_method: ansible.builtin.sudo
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  vars_files:
+    - k8snodes.yml
+  roles:
+    - spawn-worker-node
+
+- name: Little nginx deployement
+  hosts: snowdin
+  become: true
+  become_method: ansible.builtin.sudo
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  vars_files:
+    - k8snodes.yml
+  roles:
+    - spawn-nginx
