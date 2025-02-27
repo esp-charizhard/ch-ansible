@@ -32,7 +32,7 @@
   roles:
     - spawn-worker-node
 
-- name: Little nginx deployement
+- name: Prepare Ota microservices
   hosts: snowdin
   become: true
   become_method: ansible.builtin.sudo
@@ -41,4 +41,4 @@
   vars_files:
     - k8snodes.yml
   roles:
-    - spawn-nginx
+    - spawn-ota

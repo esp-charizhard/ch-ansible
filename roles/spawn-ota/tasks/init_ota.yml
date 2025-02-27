@@ -1,0 +1,4 @@
+- name: Create a Deployment for the Ota
+  kubernetes.core.k8s:
+    state: present
+    src: test-ota.yml
