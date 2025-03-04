@@ -6,15 +6,6 @@
 - set_fact:
     kubeadm_join: "{{ kubeadm_join_cmd.stdout }}"
 
-- name: Create /etc/kubernetes directory
-  become: true
-  ansible.builtin.file:
-    path: "/etc/kubernetes"
-    state: directory
-    mode: "0755"
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
-
 - name: Store join command
   copy:
     content: "{{ kubeadm_join }}"

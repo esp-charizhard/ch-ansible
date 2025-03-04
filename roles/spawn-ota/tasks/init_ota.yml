@@ -1,4 +1,55 @@
-- name: Create a Deployment for the Ota
+---
+
+- name: Create Kubernetes Deployment for funnyklown/ota
   kubernetes.core.k8s:
     state: present
-    src: test-ota.yml
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: ota-deployment
+        namespace: default  
+        labels:
+          app: ota
+      spec:
+        replicas: 2
+        selector:
+          matchLabels:
+            app: ota
+        template:
+          metadata:
+            labels:
+              app: ota
+          spec:
+            containers:
+            - name: ota
+              image: funnyklown/ota
+              imagePullPolicy: Always
+              ports:
+              - containerPort: 8081
+              env:
+              - name: MINIO_ACCESS_KEY
+                value: "{{ minio_access_key }}"
+              - name: MINIO_SECRET_KEY
+                value: "{{ minio_secret_key }}"
+    kubeconfig: "/home/papyrus/.kube/config"
+
+
+- name: Create Kubernetes Service for funnyklown/ota
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "/home/papyrus/.kube/config"
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: ota-service
+        namespace: default  # Match the namespace above
+      spec:
+        selector:
+          app: ota
+        ports:
+        - protocol: TCP
+          port: 80  # External port
+          targetPort: 8081  # Port the container listens on
+        type: LoadBalancer  # Use NodePort or ClusterIP if no external LB is desired

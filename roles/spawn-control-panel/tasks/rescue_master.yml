@@ -3,12 +3,6 @@
   become: true
 
   block:
-    - name: Drain node (snowdin)
-      shell: kubectl drain snowdin --ignore-daemonsets --delete-emptydir-data --force --kubeconfig=/home/{{ ansible_user }}/.kube/config
-      ignore_errors: true
-      run_once: true #Only run from one host
-      delegate_to: "{{ groups['master_nodes'][0] }}"
-
     - name: Stop kubelet service
       systemd:
         name: kubelet

@@ -29,15 +29,14 @@
   with_items:
     - /etc/containerd
 
-- name: Ensure /etc/containerd/config.toml exists
-  become: true
-  ansible.builtin.copy:
-    content: "{{ containerd_default_config.stdout }}"
-    dest: /etc/containerd/config.toml
-    owner: root
-    group: root
-    mode: "0644"
-  when: not ansible.builtin.stat('/etc/containerd/config.toml').stat.exists
+# - name: Ensure /etc/containerd/config.toml exists
+#   become: true
+#   ansible.builtin.copy:
+#     content: "{{ containerd_default_config.stdout }}"
+#     dest: /etc/containerd/config.toml
+#     owner: root
+#     group: root
+#     mode: "0644"
 
 - name: Set SystemdCgroup to true in containerd config
   become: true

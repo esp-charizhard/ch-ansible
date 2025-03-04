@@ -8,11 +8,6 @@
 
 - name: Clean up worker-spawn node (snowdin)
   block:
-    - name: Drain node (snowdin)
-      become: true
-      shell: kubectl drain snowdin --ignore-daemonsets --delete-emptydir-data --force --kubeconfig=/home/{{ ansible_user }}/.kube/config
-      ignore_errors: true  # Continue even if drain fails
-
     - name: Stop kubelet service
       become: true
       systemd:
@@ -72,10 +67,6 @@
         state: absent
       ignore_errors: true
     
-
-
-
-
     - name: Restart containerd
       become: true
       systemd:

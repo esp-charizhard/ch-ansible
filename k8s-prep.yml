@@ -1,43 +1,35 @@
 ---
-- name: Prepare Kubernetes Nodes for Cluster bootstrapping
-  hosts: k8snodes
-  become: true
-  become_method: ansible.builtin.sudo
-  vars:
-    ansible_python_interpreter: /usr/bin/python3
-  vars_files:
-    - k8snodes.yml
-  roles:
-    - spawn-k8s
-
-- name: Prepare Master node (test / not high availability)
-  hosts: master_nodes
-  become: true
-  become_method: ansible.builtin.sudo
-  vars:
-    ansible_python_interpreter: /usr/bin/python3
-  vars_files:
-    - k8snodes.yml
-  roles:
-    - spawn-control-panel
-
-- name: Prepare Worker Node (test / not high availability)
-  hosts: worker_nodes
-  become: true
-  become_method: ansible.builtin.sudo
-  vars:
-    ansible_python_interpreter: /usr/bin/python3
-  vars_files:
-    - k8snodes.yml
-  roles:
-    - spawn-worker-node
+# - name: Prepare Kubernetes Nodes for Cluster bootstrapping
+#   hosts: k8snodes
+#   become: true
+#   become_method: ansible.builtin.sudo
+#   vars_files:
+#     - k8snodes.yml
+#   roles:
+#     - spawn-k8s
+# 
+# - name: Prepare Master node (test / not high availability)
+#   hosts: master_nodes
+#   become: true
+#   become_method: ansible.builtin.sudo
+#   vars_files:
+#     - k8snodes.yml
+#   roles:
+#     - spawn-control-panel
+# 
+# - name: Prepare Worker Node (test / not high availability)
+#   hosts: worker_nodes
+#   become: true
+#   become_method: ansible.builtin.sudo
+#   vars_files:
+#     - k8snodes.yml
+#   roles:
+#     - spawn-worker-node
 
 - name: Prepare Ota microservices
   hosts: snowdin
   become: true
   become_method: ansible.builtin.sudo
-  vars:
-    ansible_python_interpreter: /usr/bin/python3
   vars_files:
     - k8snodes.yml
   roles:

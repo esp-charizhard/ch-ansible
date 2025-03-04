@@ -8,3 +8,6 @@ basic_packages:
   - ca-certificates
   - gnupg
   - software-properties-common
+  - python3-pip
+  - python3-kubernetes
+  - python3-openshift
