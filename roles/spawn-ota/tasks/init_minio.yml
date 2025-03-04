@@ -3,6 +3,7 @@
     name: minio-operator
     repo_url: "https://operator.min.io"
     state: present
+    force_update: true
 
 - name: Create namespace for MinIO
   kubernetes.core.k8s:
@@ -16,19 +17,19 @@
   kubernetes.core.helm:
     name: "operator"
     chart_ref: minio-operator/operator
-    release_namespace: "minio"
+    release_namespace: "minio-tenant"
     state: present
     values:
       operator:
         replicaCount: 1
         image:
-          registry: minio
-          repository: operator
-          tag: latest
+          registry: quay.io
+          repository: minio/operator
+          tag: v5.0.11
           pullPolicy: Always
       tenants:
         - name: minio-tenant
-          namespace: "minio"
+          namespace: "minio-tenant"
           pools:
             - servers: 1
               volumesPerServer: 4
@@ -50,33 +51,33 @@
     kubeconfig: "/home/papyrus/.kube/config"
 
 
-- name: Wait for MinIO pods to be ready
-  kubernetes.core.k8s_info:
-    kind: Pod
-    namespace: "minio"
-    label_selectors:
-      - "app=minio"
-    kubeconfig: "/home/papyrus/.kube/config"
-  register: pod_list
-  until: pod_list.resources | length > 0 and pod_list.resources | selectattr('status.phase', 'equal', 'Running') | list | length == pod_list.resources | length
-  retries: 30
-  delay: 10
-
-- name: Get MinIO service information
-  kubernetes.core.k8s_info:
-    kind: Service
-    namespace: "minio"
-    name: "minio-tenant-console"  #changed here based on search result
-    kubeconfig: "/home/papyrus/.kube/config"
-  register: minio_console_service
-
-- name: Display MinIO connection details
-  debug:
-    msg: |
-      MinIO deployed successfully!
-
-      Object Storage Endpoint (internal): http://minio-operator-minio.minio.svc.cluster.local:9000 # this may be different, check services in the minio namespace
-
-      MinIO Console Endpoint: http://{{ minio_console_service.resources[0].spec.clusterIP }}:{{ minio_console_service.resources[0].spec.ports[0].port }}
-
-      Remember to configure Ingress or port-forwarding for external access to the console.
+# - name: Wait for MinIO pods to be ready
+#   kubernetes.core.k8s_info:
+#     kind: Pod
+#     namespace: "minio-tenant"
+#     label_selectors:
+#       - "app=minio"
+#     kubeconfig: "/home/papyrus/.kube/config"
+#   register: pod_list
+#   until: pod_list.resources | length > 0 and pod_list.resources | selectattr('status.phase', 'equal', 'Running') | list | length == pod_list.resources | length
+#   retries: 30
+#   delay: 10
+# 
+# - name: Get MinIO service information
+#   kubernetes.core.k8s_info:
+#     kind: Service
+#     namespace: "minio-tenant"
+#     name: "minio-tenant-console"  #changed here based on search result
+#     kubeconfig: "/home/papyrus/.kube/config"
+#   register: minio_console_service
+# 
+# - name: Display MinIO connection details
+#   debug:
+#     msg: |
+#       MinIO deployed successfully!
+# 
+#       Object Storage Endpoint (internal): http://minio-operator-minio.minio.svc.cluster.local:9000 # this may be different, check services in the minio namespace
+# 
+#       MinIO Console Endpoint: http://{{ minio_console_service.resources[0].spec.clusterIP }}:{{ minio_console_service.resources[0].spec.ports[0].port }}
+# 
+#       Remember to configure Ingress or port-forwarding for external access to the console.

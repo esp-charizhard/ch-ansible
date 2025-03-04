@@ -5,5 +5,7 @@
       ansible.builtin.include_tasks: kubeadm_join.yml
 
   rescue:
-    - name: Rescue worker node
-      ansible.builtin.include_tasks: rescue_worker.yml
+    - name: Import cleanup playbook
+      ansible.builtin.include_role:
+        name: clean
+        tasks_from: rescue_worker.yml

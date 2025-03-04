@@ -11,3 +11,5 @@ proxy_server: "proxy.example.com:8080"               # Proxy server address and 
 docker_proxy_exclude: "localhost,127.0.0.1"          # Adresses to exclude from proxy
 cluster_endpoint: "localhost"                        # Potential endpoint for a load balancer when we have high availability (for now, it's the ip of master node)
 ansible_python_interpreter: /usr/bin/python3
+clean_master: "true"
+clean_worker: "true"

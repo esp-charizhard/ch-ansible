@@ -1,9 +1,16 @@
 ---
-- name: Include task to pre-setup for control panel
-  ansible.builtin.include_tasks: pre_setup.yml
+- name: Begin spawn-master
+  block: 
+    - name: Include task to pre-setup for control panel
+      ansible.builtin.include_tasks: pre_setup.yml
 
-- name: Include task to launch kubeadm
-  ansible.builtin.include_tasks: kubeadm_init.yml
-# 
-# - name: Include task to idk
-#   ansible.builtin.include_tasks: idk.yml
+    - name: Include task to launch kubeadm
+      ansible.builtin.include_tasks: kubeadm_init.yml
+
+  rescue:
+    - set_fact:
+        clean_worker: "false"
+    - ansible.builtin.include_role:
+        name: clean
+        tasks_from: rescue_master.yml
+

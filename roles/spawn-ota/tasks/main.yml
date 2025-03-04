@@ -1,7 +1,7 @@
 ---
-#- name: Begin ota microservice full deployment
-#
-#  block:
+- name: Begin ota microservice full deployment
+
+  block:
   - name: Include task to setup stuff
     ansible.builtin.include_tasks: setup.yml
   
@@ -10,8 +10,10 @@
 
   - name: Include task to create ota pod
     ansible.builtin.include_tasks: init_ota.yml
-#  rescue:
-#      - include_role:
-#         name: spawn-worker-node
-#         tasks_from: rescue_worker.yml
-    
+  rescue:
+    - ansible.builtin.include_role:
+        name: clean
+        tasks_from: rescue_master.yml
+    - ansible.builtin.include_role:
+        name: clean
+        tasks_from: rescue_worker.yml

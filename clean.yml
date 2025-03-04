@@ -1,3 +1,20 @@
+- name: Clean Master node
+  hosts: master_nodes
+  become: true
+  become_method: ansible.builtin.sudo
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+  vars_files:
+    - k8snodes.yml
+  tasks:
+    - name: Clean process
+      block:
+        - include_role:
+            name: clean
+            tasks_from: rescue_master.yml
+      when: clean_master == "true"
+
+
 - name: Clean Worker node
   hosts: worker_nodes
   become: true
@@ -7,8 +24,9 @@
   vars_files:
     - k8snodes.yml
   tasks:
-    - name: Clean worker_node
+    - name: Clean process
       block:
         - include_role:
-            name: spawn-worker-node
+            name: clean
             tasks_from: rescue_worker.yml
+      when: clean_worker == "true"

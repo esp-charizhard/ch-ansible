@@ -1,11 +1,4 @@
 ---
-- name: Include clean master
-  block:
-    - include_role:
-        name: spawn-control-panel
-        tasks_from: rescue_master.yml
-  delegate_to: "{{ groups['master_nodes'][0] }}"
-
 - name: Clean up worker-spawn node (snowdin)
   block:
     - name: Stop kubelet service
@@ -19,11 +12,7 @@
       become: true
       shell: kubeadm reset --cri-socket=unix:///var/run/containerd/containerd.sock -f
       register: reset_result
-      ignore_errors: true #Reset can fail sometimes
-    
-#    - name: Set ip links down for cni
-#      become: true
-#      shell: ip link set cni0 down && ip link delete cni0
+      ignore_errors: true
 
     - name: Remove Kubernetes directories
       become: true
@@ -35,8 +24,8 @@
         - /etc/kubernetes
         - /etc/cni/net.d
         - /var/lib/etcd
-        - /var/lib/dockershim  #Might not exist, but good to try
-        - /var/run/kubernetes #Remove runtime files
+        - /var/lib/dockershim
+        - /var/run/kubernetes
         - /var/lib/cni
 
     - name: Remove containerd state
@@ -51,13 +40,13 @@
         path: /var/lib/docker
         state: absent
       register: docker_dir_result
-      failed_when: docker_dir_result.failed and "'Could not find or access '/var/lib/docker'' not in docker_dir_result.msg" #Only fail if it truly fails beyond not finding it.
-      ignore_errors: true #Docker might not be used.
+      failed_when: docker_dir_result.failed and "'Could not find or access '/var/lib/docker'' not in docker_dir_result.msg"
+      ignore_errors: true
 
     - name: Remove iptables rules
       become: true
       shell: iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X
-      ignore_errors: true  #iptables might not be running
+      ignore_errors: true
 
     - name: Remove IP forwarding settings
       become: true
@@ -66,13 +55,12 @@
         value: '0'
         state: absent
       ignore_errors: true
-    
+
     - name: Restart containerd
       become: true
       systemd:
         name: containerd
         state: restarted
-
   rescue:
     - name: Handle cleanup failure
       debug:

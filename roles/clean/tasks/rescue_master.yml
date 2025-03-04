@@ -1,7 +1,6 @@
 ---
 - name: Clean up Kubernetes Node (snowdin)
   become: true
-
   block:
     - name: Stop kubelet service
       systemd:
@@ -96,7 +95,6 @@
         delay: 60
         timeout: 300
       ignore_errors: true
-
   rescue:
     - name: Handle cleanup failure
       debug:
