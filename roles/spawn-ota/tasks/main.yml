@@ -1,19 +1,9 @@
 ---
-- name: Begin ota microservice full deployment
+- name: Include task to setup stuff
+  ansible.builtin.include_tasks: setup.yml
 
-  block:
-  - name: Include task to setup stuff
-    ansible.builtin.include_tasks: setup.yml
-  
-  - name: Include task to init minio
-    ansible.builtin.include_tasks: init_minio.yml
+- name: Include task to init minio
+  ansible.builtin.include_tasks: init_minio_2.yml
 
-  - name: Include task to create ota pod
-    ansible.builtin.include_tasks: init_ota.yml
-  rescue:
-    - ansible.builtin.include_role:
-        name: clean
-        tasks_from: rescue_master.yml
-    - ansible.builtin.include_role:
-        name: clean
-        tasks_from: rescue_worker.yml
+- name: Include task to create ota pod
+  ansible.builtin.include_tasks: init_ota.yml

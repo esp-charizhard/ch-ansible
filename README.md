@@ -31,9 +31,9 @@ Playbook to clean the actions performed on every node in case it hasn't cleaned 
     - [x] Set up control plane
     - [x] Set up worker node
     - [x] Set up small app
-    - [ ] Expose app
+    - [x] Expose app
     - [ ] Set up Ingress service
-    - [ ] Get OTA microservice deployment
+    - [x] Get OTA microservice deployment
     - [ ] Set up Keycloak deployment
     - [ ] Set up database for replicas pods
 - [ ] Change in HA architecture

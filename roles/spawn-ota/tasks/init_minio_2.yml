@@ -1,0 +1,38 @@
+- name: Add minio chart repo
+  kubernetes.core.helm_repository:
+    name: minio-operator
+    repo_url: "https://operator.min.io"
+    state: present
+    force_update: true
+
+- name: Create namespace for MinIO
+  kubernetes.core.k8s:
+    name: minio
+    api_version: v1
+    kind: Namespace
+    state: present
+    kubeconfig: "/home/papyrus/.kube/config"
+
+- name: Create minio volume
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'minio-volume.yml.j2') | from_yaml }}"
+    kubeconfig: "/home/papyrus/.kube/config"
+
+- name: Create minio persistent volume claim
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'minio-pvc.yml.j2') | from_yaml }}"
+    kubeconfig: "/home/papyrus/.kube/config"
+
+- name: Create minio deployment
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'minio-deployment.yml.j2') | from_yaml }}"
+    kubeconfig: "/home/papyrus/.kube/config"
+
+- name: Create minio service
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'minio-service.yml.j2') | from_yaml }}"
+    kubeconfig: "/home/papyrus/.kube/config"

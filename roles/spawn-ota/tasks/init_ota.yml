@@ -1,5 +1,4 @@
 ---
-
 - name: Create Kubernetes Deployment for funnyklown/ota
   kubernetes.core.k8s:
     state: present
@@ -32,6 +31,18 @@
                 value: "{{ minio_access_key }}"
               - name: MINIO_SECRET_KEY
                 value: "{{ minio_secret_key }}"
+              readinessProbe:
+                httpGet:
+                  path: /
+                  port: 8081
+                initialDelaySeconds: 10
+                periodSeconds: 5
+              livenessProbe:
+                httpGet:
+                  path: /
+                  port: 8081
+                initialDelaySeconds: 15
+                periodSeconds: 10
     kubeconfig: "/home/papyrus/.kube/config"
 
 

@@ -7,17 +7,17 @@
 
 - name: Create namespace for MinIO
   kubernetes.core.k8s:
-    name: minio-tenant
+    name: minio
     api_version: v1
     kind: Namespace
     state: present
     kubeconfig: "/home/papyrus/.kube/config"
 
-- name: Deploy MinIO using Helm
+- name: Deploy MinIO operator
   kubernetes.core.helm:
-    name: "operator"
+    name: "minio-operator"
     chart_ref: minio-operator/operator
-    release_namespace: "minio-tenant"
+    release_namespace: "minio"
     state: present
     values:
       operator:
@@ -27,36 +27,54 @@
           repository: minio/operator
           tag: v5.0.11
           pullPolicy: Always
-      tenants:
-        - name: minio-tenant
-          namespace: "minio-tenant"
-          pools:
-            - servers: 1
-              volumesPerServer: 4
-              size: 10Gi
-          buckets:
-            - name: bin
-          users:
-            - accessKey: "{{ minio_access_key }}"
-              secretKey: "{{ minio_secret_key }}"
-              policy:
-                Version: "2012-10-17"
-                Statement:
-                  - Effect: "Allow"
-                    Action:
-                      - "s3:*"
-                    Resource:
-                      - "arn:aws:s3:::bin"
-                      - "arn:aws:s3:::bin/*"
     kubeconfig: "/home/papyrus/.kube/config"
 
+- name: Deploy MinIO Tenant
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: minio.min.io/v2
+      kind: Tenant
+      metadata:
+        name: minio-tenant
+        namespace: minio
+      spec:
+        pools:
+          - name: pool-0
+            servers: 1
+            volumesPerServer: 4
+            volumeClaimTemplate:
+              metadata:
+                name: data
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: 10Gi
+            size: 10Gi
+        buckets:
+          - name: bin
+        users:
+          - accessKey: "{{ minio_access_key }}"
+            secretKey: "{{ minio_secret_key }}"
+        policy:
+          Version: "2012-10-17"
+          Statement:
+            - Effect: "Allow"
+              Action:
+                - "s3:*"
+              Resource:
+                - "arn:aws:s3:::bin"
+                - "arn:aws:s3:::bin/*"
+    kubeconfig: "/home/papyrus/.kube/config"
 
 # - name: Wait for MinIO pods to be ready
 #   kubernetes.core.k8s_info:
 #     kind: Pod
-#     namespace: "minio-tenant"
+#     namespace: "minio"
 #     label_selectors:
-#       - "app=minio"
+#       - "app=minio-operator"
 #     kubeconfig: "/home/papyrus/.kube/config"
 #   register: pod_list
 #   until: pod_list.resources | length > 0 and pod_list.resources | selectattr('status.phase', 'equal', 'Running') | list | length == pod_list.resources | length
@@ -66,8 +84,8 @@
 # - name: Get MinIO service information
 #   kubernetes.core.k8s_info:
 #     kind: Service
-#     namespace: "minio-tenant"
-#     name: "minio-tenant-console"  #changed here based on search result
+#     namespace: "minio"
+#     name: "minio-operator"  #changed here based on search result
 #     kubeconfig: "/home/papyrus/.kube/config"
 #   register: minio_console_service
 # 
