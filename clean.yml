@@ -1,34 +1,148 @@
-- name: Clean Master node
-  hosts: master_nodes
+---
+- name: Clean up Kubernetes Nodes
+  hosts: all
   become: true
-  become_method: ansible.builtin.sudo
-  vars:
-    ansible_python_interpreter: /usr/bin/python3
   vars_files:
-    - k8snodes.yml
     - vault_become_pass.yml
-  tasks:
-    - name: Clean process
-      block:
-        - include_role:
-            name: clean
-            tasks_from: rescue_master.yml
-      when: clean_master == "true"
-
-
-- name: Clean Worker node
-  hosts: worker_nodes
-  become: true
-  become_method: ansible.builtin.sudo
   vars:
-    ansible_python_interpreter: /usr/bin/python3
-  vars_files:
-    - k8snodes.yml
-    - vault_become_pass.yml
+    is_master: "{{ inventory_hostname in groups['master_nodes'] | default([]) }}"
+    is_worker: "{{ inventory_hostname in groups['worker_nodes'] | default([]) }}"
+  
   tasks:
-    - name: Clean process
+    - name: Execute Kubernetes cleanup
       block:
-        - include_role:
-            name: clean
-            tasks_from: rescue_worker.yml
-      when: clean_worker == "true"
+        - name: Stop Kubernetes services
+          block:
+            - name: Stop kubelet service
+              systemd:
+                name: kubelet
+                state: stopped
+                enabled: no
+              ignore_errors: true
+            
+            - name: Stop containerd service
+              systemd:
+                name: containerd
+                state: stopped
+                enabled: no
+              ignore_errors: true
+        - name: Reset Kubernetes configuration
+          block:
+            - name: Reset kubeadm on all nodes
+              shell: kubeadm reset --cri-socket=unix:///var/run/containerd/containerd.sock -f
+              register: reset_result
+              ignore_errors: true
+            
+            - name: Remove etcd data (master nodes only)
+              file:
+                path: /var/lib/etcd
+                state: absent
+              when: is_master
+              ignore_errors: true
+        
+        - name: Clean up Kubernetes directories
+          file:
+            path: "{{ item }}"
+            state: absent
+          loop:
+            - /var/lib/kubelet
+            - /etc/kubernetes
+            - /home/{{ ansible_user }}/.kube
+            - /etc/cni/net.d
+            - /var/lib/dockershim
+            - /var/run/kubernetes
+            - /var/lib/cni
+            - /opt/cni/bin
+          ignore_errors: true
+        
+        - name: Clean up container runtime
+          block:
+            - name: Remove containerd state
+              file:
+                path: /var/lib/containerd
+                state: absent
+              ignore_errors: true
+            
+            - name: Remove Docker directory (if used)
+              file:
+                path: /var/lib/docker
+                state: absent
+              ignore_errors: true
+        
+        - name: Clean up network configuration
+          block:
+            - name: Remove iptables rules
+              shell: iptables -F && iptables -t nat -F && iptables -t mangle -F && iptables -X
+              ignore_errors: true
+            
+            - name: Remove IP forwarding settings
+              sysctl:
+                name: net.bridge.bridge-nf-call-iptables
+                value: '0'
+                state: absent
+              ignore_errors: true
+            
+            - name: Clean up any remaining flannel artifacts
+              file:
+                path: /run/flannel/subnet.env
+                state: absent
+              ignore_errors: true
+        
+        - name: Master node specific cleanup
+          block:
+            - name: Backup etcd (if needed)
+              shell: mkdir -p /tmp/etcd-backup && ETCDCTL_API=3 etcdctl snapshot save /tmp/etcd-backup/etcd-snapshot-$(date +%Y%m%d-%H%M%S).db --endpoints=localhost:2379
+              ignore_errors: true
+            
+            - name: Remove control plane static pod manifests
+              file:
+                path: /etc/kubernetes/manifests
+                state: absent
+              ignore_errors: true
+          when: is_master
+        
+        - name: Worker node specific cleanup
+          block:
+            - name: Remove kubelet config
+              file:
+                path: /var/lib/kubelet/config.yaml
+                state: absent
+              ignore_errors: true
+            
+            - name: Drain node (if cluster is still running)
+              shell: "kubectl drain {{ inventory_hostname }} --ignore-daemonsets --delete-emptydir-data --force"
+              delegate_to: "{{ groups['master_nodes'][0] }}"
+              ignore_errors: true
+              when: groups['master_nodes'] | length > 0
+          when: is_worker
+        
+        - name: Restart services
+          block:
+            - name: Restart containerd
+              systemd:
+                name: containerd
+                state: restarted
+              ignore_errors: true
+              
+            - name: Start kubelet service
+              systemd:
+                name: kubelet
+                state: started
+                enabled: yes
+              ignore_errors: true
+        
+        - name: Reboot node
+          reboot:
+            reboot_timeout: 600
+          ignore_errors: true
+        
+        - name: Wait for node to come back online
+          wait_for_connection:
+            delay: 60
+            timeout: 300
+          ignore_errors: true
+      
+      rescue:
+        - name: Handle cleanup failure
+          debug:
+            msg: "Cleanup failed on {{ inventory_hostname }}. Please manually inspect and clean up the system. Check disk space, network configuration, and Kubernetes component logs."

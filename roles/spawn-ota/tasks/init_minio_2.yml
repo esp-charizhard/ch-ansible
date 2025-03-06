@@ -36,3 +36,25 @@
     state: present
     definition: "{{ lookup('template', 'minio-service.yml.j2') | from_yaml }}"
     kubeconfig: "/home/papyrus/.kube/config"
+
+- name: Wait for minio pods to be ready
+  kubernetes.core.k8s_info:
+    kind: Deployment
+    name: minio-deployment
+    namespace: minio
+    kubeconfig: "/home/papyrus/.kube/config"
+  register: minio_deployment
+  until: 
+    - minio_deployment.resources is defined
+    - minio_deployment.resources | length > 0
+    - minio_deployment.resources[0].status is defined
+    - minio_deployment.resources[0].status.availableReplicas is defined 
+    - minio_deployment.resources[0].status.availableReplicas == minio_deployment.resources[0].status.replicas
+  retries: 30
+  delay: 10
+
+- name: Job for bucket
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'minio-bucket_job.yml.j2') | from_yaml }}"
+    kubeconfig: "/home/papyrus/.kube/config"

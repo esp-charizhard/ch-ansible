@@ -8,9 +8,9 @@ Playbook to bootstrap k8s cluster
 
 4 roles :
 -  **spawn-k8s**: On every node of the cluster, to install dependencies, set network rules, install cri (containerd)...
-- **spawn-control-panel**: Only the master nodes (for now it's just a control-plane), use of kubeadm and set cni (flannel)
+- **spawn-control-panel**: Only the master nodes (for now it's just a control-plane), use of kubeadm and set cni (calico)
 - **spawn-worker-node**: Only on the worker nodes, to perform the kubeadm join
-- **spawn-nginx**: On the control-plane, to perform a small hello-world app
+- **spawn-ota**: On the control-plane, to deploy the ota, minio object storage and keycloak
 
 It has a clean script if the *spawn-control-panel* and *spawn-worker-node*
 

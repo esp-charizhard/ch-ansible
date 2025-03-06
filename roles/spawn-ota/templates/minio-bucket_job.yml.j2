@@ -1,0 +1,69 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-bucket-setup
+  namespace: minio
+spec:
+  template:
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: mc
+        image: minio/mc
+        command: ["/bin/sh", "-c"]
+        args:
+        - |
+          # Wait for MinIO to be fully up and running
+          sleep 30
+          
+          # Configure MinIO client
+          mc alias set myminio http://minio-service:9000 "{{ minio_root_user }}" "{{ minio_root_password }}"
+          
+          # Create a bucket named 'bin'
+          mc mb myminio/bin
+          
+          # Debug - check if we can write to /tmp
+          echo "Checking if we can write to /tmp..."
+          touch /tmp/test-file
+          ls -la /tmp/
+          
+          # Create a policy file directly (not using redirection)
+          echo '{
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": [
+                  "s3:GetObject",
+                  "s3:PutObject",
+                  "s3:ListBucket"
+                ],
+                "Resource": [
+                  "arn:aws:s3:::bin",
+                  "arn:aws:s3:::bin/*"
+                ]
+              }
+            ]
+          }' > /tmp/policy.json
+          
+          # Check if the policy file was created
+          echo "Checking policy file:"
+          ls -la /tmp/
+          cat /tmp/policy.json
+          
+          # Create the policy
+          echo "Creating policy..."
+          mc admin policy create myminio mybucket-policy /tmp/policy.json
+          
+          # Create a user with appropriate access key and secret key
+          ACCESS_KEY="{{ minio_access_key | regex_replace('[=,]', '_') }}"
+          SECRET_KEY="{{ minio_secret_key }}"
+          echo "Using sanitized access key: $ACCESS_KEY"
+
+          mc admin user add myminio "$ACCESS_KEY" "$SECRET_KEY"
+          
+          # Attach the policy to the user
+          echo "Attaching policy..."
+          mc admin policy attach myminio mybucket-policy --user="$ACCESS_KEY"
+          mc admin user info myminio "$ACCESS_KEY"
+          echo "MinIO bucket and user policy setup completed."
