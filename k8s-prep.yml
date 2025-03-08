@@ -16,6 +16,7 @@
   vars_files:
     - k8snodes.yml
     - vault_become_pass.yml
+    - dockerhub-image-pull-secret.yml
   roles:
     - spawn-control-panel
 
@@ -26,6 +27,7 @@
   vars_files:
     - k8snodes.yml
     - vault_become_pass.yml
+    - dockerhub-image-pull-secret.yml
   roles:
     - spawn-worker-node
 
@@ -36,5 +38,8 @@
   vars_files:
     - k8snodes.yml
     - vault_become_pass.yml
+    - dockerhub-image-pull-secret.yml
+    - dockerhub-image-pull-secret-copy.yml
+    - dockerhub-image-pull-secret-copy-2.yml
   roles:
     - spawn-ota

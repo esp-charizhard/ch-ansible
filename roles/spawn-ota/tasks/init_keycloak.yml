@@ -1,0 +1,152 @@
+---
+- name: Create namespace for MinIO
+  kubernetes.core.k8s:
+    name: keycloak
+    api_version: v1
+    kind: Namespace
+    state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Create postgres for keycloak
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'example-postgres.yml') }}"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Create database secret
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'keycloak-db-secret.yml') }}"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Read cert1.pem file
+  ansible.builtin.set_fact:
+    cert1:
+      content: "{{ lookup('file', 'cert1.pem') | b64encode }}"
+
+- name: Read chain1.pem file
+  ansible.builtin.set_fact:
+    chain1:
+      content: "{{ lookup('file', 'chain1.pem') | b64encode }}"
+
+- name: Read fullchain1.pem file
+  ansible.builtin.set_fact:
+    fullchain1:
+      content: "{{ lookup('file', 'fullchain1.pem') | b64encode }}"
+
+- name: Read privkey1.pem file
+  ansible.builtin.set_fact:
+    privkey1:
+      content: "{{ lookup('file', 'privkey1.pem') | b64encode }}"
+
+- name: Create TLS secret
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'secret-template.yml') }}"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+# - name: Create Keycloak ConfigMap for realms
+#   kubernetes.core.k8s:
+#     state: present
+#     definition:
+#       apiVersion: v1
+#       kind: ConfigMap
+#       metadata:
+#         name: keycloak-config
+#         namespace: keycloak
+#       data:
+#         charizhard-ota-realm.json: "{{ lookup('file', 'charizhard-ota-realm.json') }}"
+#     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Deploy Keycloak directly
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: StatefulSet
+      metadata:
+        name: keycloak
+        namespace: keycloak
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: keycloak
+        template:
+          metadata:
+            labels:
+              app: keycloak
+          spec:
+            containers:
+              - name: keycloak
+                image: quay.io/keycloak/keycloak:latest
+                args: ["start"]
+                env:
+                  - name: KC_DB
+                    value: postgres
+                  - name: KC_DB_URL
+                    value: jdbc:postgresql://postgres-db.keycloak.svc.cluster.local:5432/keycloak
+                  - name: KC_DB_USERNAME
+                    valueFrom:
+                      secretKeyRef:
+                        name: keycloak-db-secret
+                        key: username
+                  - name: KC_DB_PASSWORD
+                    valueFrom:
+                      secretKeyRef:
+                        name: keycloak-db-secret
+                        key: password
+                  - name: KC_HOSTNAME
+                    value: charizhard-keycloak.duckdns.org
+                  - name: KC_HTTP_ENABLED
+                    value: "true"
+
+#                  - name: KC_HTTPS_CERTIFICATE_FILE
+#                    valueFrom:
+#                      secretKeyRef:
+#                        name: example-tls-secret
+#                        key: fullchain.pem
+#                  - name: KC_HTTPS_CERTIFICATE_KEY_FILE
+#                    valueFrom:
+#                      secretKeyRef:
+#                        name: example-tls-secret
+#                        key: privkey.pem
+                  - name: KC_PROXY
+                    value: edge
+                ports:
+                  - name: http
+                    containerPort: 8080
+                readinessProbe:
+                  httpGet:
+                    path: /auth/realms/master
+                    port: 8080
+                  initialDelaySeconds: 60
+                  periodSeconds: 20
+                  failureThreshold: 1200
+                resources:
+                  requests:
+                    memory: "2Gi"
+                    cpu: "1"
+                  limits:
+                    memory: "4Gi"
+                    cpu: "2"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Create Keycloak Service
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: keycloak-service
+        namespace: keycloak
+      spec:
+        selector:
+          app: keycloak
+        ports:
+          - name: http
+            port: 80
+            targetPort: 8080
+        type: ClusterIP
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"

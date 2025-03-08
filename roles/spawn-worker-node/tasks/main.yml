@@ -4,6 +4,9 @@
     - name: Include task to join the master node
       ansible.builtin.include_tasks: kubeadm_join.yml
 
+#    - name: Include task to clean potential taints
+#      ansible.builtin.include_tasks: remove-taints.yml#
+
   rescue:
     - name: Import cleanup playbook
       ansible.builtin.include_role:

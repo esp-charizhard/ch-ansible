@@ -1,0 +1,21 @@
+---
+- name: Get current taints on the node
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Node
+    name: waterfall
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  register: node_info
+
+- name: Extract existing taints
+  set_fact:
+    current_taints: "{{ node_info.resources[0].spec.taints | default([]) }}"
+
+- name: Remove specified taints if they exist
+  kubernetes.core.k8s_taint:
+    state: absent
+    name: waterfall
+    taints: "{{ item }}"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  loop: "{{ taints_to_remove }}"
+  when: "item in current_taints"

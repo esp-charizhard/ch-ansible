@@ -2,3 +2,9 @@
 .vscode
 .ansible
 vault_pass.txt
+*.pem
+/kc-config
+/certs
+dockerhub-image-pull-secret.yml
+dockerhub-image-pull-secret-copy.yml
+dockerhub-image-pull-secret-copy-2.yml

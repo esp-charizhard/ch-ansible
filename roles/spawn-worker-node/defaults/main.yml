@@ -1,0 +1,8 @@
+---
+taints_to_remove:
+  - effect: "NoExecute"
+    key: "key1"
+    value: "value1"
+  - effect: "NoSchedule"
+    key: "key2"
+    value: "value2"

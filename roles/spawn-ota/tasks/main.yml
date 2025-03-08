@@ -5,5 +5,8 @@
 - name: Include task to init minio
   ansible.builtin.include_tasks: init_minio_2.yml
 
+- name: Include task to init keycloak
+  ansible.builtin.include_tasks: init_keycloak.yml
+
 - name: Include task to create ota pod
   ansible.builtin.include_tasks: init_ota.yml
