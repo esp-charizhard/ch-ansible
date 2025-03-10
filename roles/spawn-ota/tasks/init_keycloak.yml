@@ -1,5 +1,5 @@
 ---
-- name: Create namespace for MinIO
+- name: Create namespace for Keycloak
   kubernetes.core.k8s:
     name: keycloak
     api_version: v1
@@ -22,22 +22,22 @@
 - name: Read cert1.pem file
   ansible.builtin.set_fact:
     cert1:
-      content: "{{ lookup('file', 'cert1.pem') | b64encode }}"
+      content: "{{ lookup('file', 'certs/cert1.pem') | b64encode }}"
 
 - name: Read chain1.pem file
   ansible.builtin.set_fact:
     chain1:
-      content: "{{ lookup('file', 'chain1.pem') | b64encode }}"
+      content: "{{ lookup('file', 'certs/chain1.pem') | b64encode }}"
 
 - name: Read fullchain1.pem file
   ansible.builtin.set_fact:
     fullchain1:
-      content: "{{ lookup('file', 'fullchain1.pem') | b64encode }}"
+      content: "{{ lookup('file', 'certs/fullchain1.pem') | b64encode }}"
 
 - name: Read privkey1.pem file
   ansible.builtin.set_fact:
     privkey1:
-      content: "{{ lookup('file', 'privkey1.pem') | b64encode }}"
+      content: "{{ lookup('file', 'certs/privkey1.pem') | b64encode }}"
 
 - name: Create TLS secret
   kubernetes.core.k8s:
@@ -45,18 +45,19 @@
     definition: "{{ lookup('template', 'secret-template.yml') }}"
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
-# - name: Create Keycloak ConfigMap for realms
-#   kubernetes.core.k8s:
-#     state: present
-#     definition:
-#       apiVersion: v1
-#       kind: ConfigMap
-#       metadata:
-#         name: keycloak-config
-#         namespace: keycloak
-#       data:
-#         charizhard-ota-realm.json: "{{ lookup('file', 'charizhard-ota-realm.json') }}"
-#     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+- name: Create Keycloak ConfigMap for realms
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: keycloak-config
+        namespace: keycloak
+      data:
+        "charizhard-ota-realm.json": |-
+          {{ lookup('file', 'kc-config/charizhard-ota-realm.json') | from_json | to_json }}
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 - name: Deploy Keycloak directly
   kubernetes.core.k8s:
@@ -72,6 +73,7 @@
         selector:
           matchLabels:
             app: keycloak
+        serviceName: keycloak-service
         template:
           metadata:
             labels:
@@ -80,7 +82,7 @@
             containers:
               - name: keycloak
                 image: quay.io/keycloak/keycloak:latest
-                args: ["start"]
+                args: ["start", "--import-realm", "--verbose", "--health-enabled=true", "--metrics-enabled=true"]
                 env:
                   - name: KC_DB
                     value: postgres
@@ -100,29 +102,42 @@
                     value: charizhard-keycloak.duckdns.org
                   - name: KC_HTTP_ENABLED
                     value: "true"
-
-#                  - name: KC_HTTPS_CERTIFICATE_FILE
-#                    valueFrom:
-#                      secretKeyRef:
-#                        name: example-tls-secret
-#                        key: fullchain.pem
-#                  - name: KC_HTTPS_CERTIFICATE_KEY_FILE
-#                    valueFrom:
-#                      secretKeyRef:
-#                        name: example-tls-secret
-#                        key: privkey.pem
-                  - name: KC_PROXY
-                    value: edge
+                  - name: KC_HTTPS_CERTIFICATE_FILE
+                    value: "/etc/x509/https/fullchain.pem"
+                  - name: KC_HTTPS_CERTIFICATE_KEY_FILE
+                    value: "/etc/x509/https/privkey.pem"
+                  - name: KC_HEALTH_ENABLED
+                    value: "true"
+                  - name: JAVA_OPTS_APPEND
+                    value: "-Xms1G -Xmx3G -XX:+ExitOnOutOfMemoryError"
                 ports:
                   - name: http
                     containerPort: 8080
+                  - name: https
+                    containerPort: 8443
+                startupProbe:
+                  httpGet:
+                    path: /realms/master #workaround
+                    port: 8080
+                  periodSeconds: 10
+                  failureThreshold: 30
+                  initialDelaySeconds: 60
                 readinessProbe:
                   httpGet:
-                    path: /auth/realms/master
+                    path: /realms/master
                     port: 8080
-                  initialDelaySeconds: 60
+                  initialDelaySeconds: 90
                   periodSeconds: 20
-                  failureThreshold: 1200
+                  failureThreshold: 30
+                  timeoutSeconds: 5
+                livenessProbe:
+                  httpGet:
+                    path: /realms/master #workaround, /ready/live doesn't for some reaseons
+                    port: 8080
+                  initialDelaySeconds: 180
+                  periodSeconds: 30
+                  timeoutSeconds: 10
+                  failureThreshold: 3
                 resources:
                   requests:
                     memory: "2Gi"
@@ -130,6 +145,20 @@
                   limits:
                     memory: "4Gi"
                     cpu: "2"
+                volumeMounts:
+                  - name: cert-volume
+                    mountPath: /etc/x509/https
+                    readOnly: true
+                  - name: realm-volume
+                    mountPath: /opt/keycloak/data/import
+                    readOnly: true
+            volumes:
+              - name: cert-volume
+                secret:
+                  secretName: example-tls-secret
+              - name: realm-volume
+                configMap:
+                  name: keycloak-config
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 - name: Create Keycloak Service
@@ -148,5 +177,55 @@
           - name: http
             port: 80
             targetPort: 8080
+          - name: https
+            port: 443
+            targetPort: 8443
         type: ClusterIP
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+
+- name: Wait for Keycloak pod to be ready
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: keycloak
+    label_selectors: app=keycloak
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  register: kc_pod
+  until:
+    - kc_pod.resources is defined
+    - kc_pod.resources | length > 0
+    - kc_pod.resources[0].status.conditions is defined
+    - kc_pod.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length > 0
+  retries: 30
+  delay: 10
+
+- name: Create Keycloak Ingress
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: keycloak-ingress
+        namespace: keycloak
+        annotations:
+          kubernetes.io/ingress.class: nginx
+          nginx.ingress.kubernetes.io/ssl-redirect: "true"
+          nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+      spec:
+        tls:
+          - hosts:
+              - charizhard-keycloak.duckdns.org
+            secretName: example-tls-secret
+        rules:
+          - host: charizhard-keycloak.duckdns.org
+            http:
+              paths:
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: keycloak-service
+                      port:
+                        name: http
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"

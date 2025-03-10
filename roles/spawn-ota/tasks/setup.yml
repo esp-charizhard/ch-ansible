@@ -10,3 +10,37 @@
   args:
     creates: /usr/local/bin/helm
 
+- name: Create namespace for Keycloak
+  kubernetes.core.k8s:
+    name: ingress-nginx
+    api_version: v1
+    kind: Namespace
+    state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Install NGINX Ingress Controller with NodePort
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: ingress-nginx-controller
+        namespace: ingress-nginx
+        annotations:
+          service.beta.kubernetes.io/nginx-service: "true"
+      spec:
+        type: NodePort
+        ports:
+        - name: http
+          port: 80
+          targetPort: 80
+          nodePort: 30080  # Choose an available port between 30000-32767
+        - name: https
+          port: 443
+          targetPort: 443
+          nodePort: 30443  # Choose an available port between 30000-32767
+        selector:
+          app.kubernetes.io/component: controller
+          app.kubernetes.io/instance: ingress-nginx
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
