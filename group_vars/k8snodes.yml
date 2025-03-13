@@ -3,13 +3,15 @@ k8s_version: "1.32"                                  # Kubernetes version to be 
 timezone: "Europe/Paris"                            # Timezone to set on all nodes
 k8s_cni: flannel                                      # calico, flannel
 container_runtime: containerd                        # docker, cri-o, containerd 
-pod_network_cidr: "10.244.0.0/16"                    # to modif to match subnet of proxmox
+pod_network_cidr: "192.168.0.0/16"                    # to modif to match subnet of proxmox
 configure_firewalld: false                           # true / false (keep it false, k8s>1.19 have issues with firewalld)
 # Docker proxy support
 setup_proxy: false                                   # Set to true to configure proxy
 proxy_server: "proxy.example.com:8080"               # Proxy server address and port
 docker_proxy_exclude: "localhost,127.0.0.1"          # Adresses to exclude from proxy
-cluster_endpoint: "localhost"                        # Potential endpoint for a load balancer when we have high availability (for now, it's the ip of master node)
+cluster_endpoint: "10.10.35.10"                        # Potential endpoint for a load balancer when we have high availability (for now, it's the ip of master node)
 ansible_python_interpreter: /usr/bin/python3
 clean_master: "true"
 clean_worker: "true"
+control_plane_join_command: ""
+worker_join_command: ""

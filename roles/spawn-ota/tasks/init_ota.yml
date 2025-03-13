@@ -43,13 +43,13 @@
                   port: 8081
                 initialDelaySeconds: 15
                 periodSeconds: 10
-    kubeconfig: "/home/papyrus/.kube/config"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 
 - name: Create Kubernetes Service for funnyklown/ota
   kubernetes.core.k8s:
     state: present
-    kubeconfig: "/home/papyrus/.kube/config"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
     definition:
       apiVersion: v1
       kind: Service

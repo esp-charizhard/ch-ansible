@@ -1,12 +1,26 @@
----
 - name: Begin spawn-worker-node
   block:
-    - name: Include task to join the master node
+    - name: Determine node type
+      set_fact:
+        is_master_node: "{{ inventory_hostname in groups['master_nodes'] }}"
+        is_worker_node: "{{ inventory_hostname in groups['worker_nodes'] }}"
+
+    - name: Include task to setup MTU
+      ansible.builtin.include_tasks: mtu.yml
+      
+    - name: Include task to presteup stuff
+      ansible.builtin.include_tasks: presetup.yml
+
+    - name: Include task to join node to cluster
       ansible.builtin.include_tasks: kubeadm_join.yml
 
-#    - name: Include task to clean potential taints
-#      ansible.builtin.include_tasks: remove-taints.yml#
-
+#     - name: Setup master-specific configurations
+#       ansible.builtin.include_tasks: setup_master.yml
+#       when: is_master_node and inventory_hostname != groups['master_nodes'][0]
+# 
+#     - name: Apply worker-specific configurations
+#       ansible.builtin.include_tasks: setup_worker.yml
+#       when: is_worker_node
   rescue:
     - name: Import cleanup playbook
       ansible.builtin.include_role:

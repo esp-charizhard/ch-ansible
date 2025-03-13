@@ -38,6 +38,10 @@
 #     group: root
 #     mode: "0644"
 
+- name: Generate default containerd config if it doesn't exist
+  shell: containerd config default | sudo tee /etc/containerd/config.toml > /dev/null
+  register: config_created
+
 - name: Set SystemdCgroup to true in containerd config
   become: true
   ansible.builtin.lineinfile:

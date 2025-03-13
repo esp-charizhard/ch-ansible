@@ -1,0 +1,6 @@
+- name: Set MTU for ens18 to 1400 using ip command
+  ansible.builtin.command: ip link set ens18 mtu 1400
+  become: true
+  register: result
+  changed_when: result.rc == 0
+  when: inventory_hostname in ['winterfell', 'castralroc', 'kingslanding']
