@@ -1,14 +1,4 @@
----
-- name: Create /tmp/kubeadm directory
-  file:
-    path: /tmp/kubeadm
-    state: directory    
-
-- name: Copy kubeadm init config
-  template:
-    src: test_config.yml
-    dest: /tmp/kubeadm/kubeadm-config.yml
-  
+---  
 - name: create crictl config file
   template:
     src: crictl.yml

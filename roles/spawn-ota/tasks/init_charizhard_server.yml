@@ -1,0 +1,7 @@
+---
+- name: Create Kubernetes Deployment for charizhard-server
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'ch-server-deploy.yml.j2') }}"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+

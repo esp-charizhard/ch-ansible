@@ -51,8 +51,8 @@ ansible-playbook clean.yml --vault-password-file vault_pass.txt
     - [x] Get OTA microservice deployment
     - [ ] Set up Keycloak deployment
     - [x] Set up database for replicas pods
-- [ ] Change in HA architecture
-    - [ ] External etcd ?
-    - [ ] Increase master nodes to 3
-    - [ ] Increase worker nodes to 3
+- [x] Change in HA architecture
+    - [x] External etcd ?
+    - [x] Increase master nodes to 3
+    - [x] Increase worker nodes to 3
 - [ ] Set up Grafana/Prometheus

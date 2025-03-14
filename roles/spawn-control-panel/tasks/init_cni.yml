@@ -1,0 +1,8 @@
+---
+- name: Set Up Pod Network (calico new)
+  become: true
+  shell: kubectl create -f https://docs.projectcalico.org/manifests/calico.yaml --kubeconfig=/home/{{ ansible_user }}/.kube/config
+  register: calico_install
+  until: calico_install.rc == 0
+  retries: 3
+  delay: 10

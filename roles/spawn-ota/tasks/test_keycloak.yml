@@ -1,0 +1,5 @@
+---
+
+- name: Deploy basic keycloak test
+  shell: kubectl  create -f https://raw.githubusercontent.com/keycloak/keycloak-quickstarts/refs/heads/main/kubernetes/keycloak.yaml --kubeconfig=/home/{{ ansible_user }}/.kube/config
+  failed_when: false

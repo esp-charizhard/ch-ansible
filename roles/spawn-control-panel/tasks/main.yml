@@ -6,7 +6,12 @@
 
     - name: Include task to launch kubeadm
       ansible.builtin.include_tasks: kubeadm_init.yml
-
+    
+#    - name: Include task to authenticate on docker
+#      ansible.builtin.include_tasks: auth_docker.yml
+#
+    - name: Include task to install cni 
+      ansible.builtin.include_tasks: init_cni.yml
   rescue:
     - set_fact:
         clean_worker: "false"
