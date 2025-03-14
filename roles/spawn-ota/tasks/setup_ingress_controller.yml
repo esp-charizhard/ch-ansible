@@ -1,0 +1,27 @@
+---
+- name: Add nginx chart repo
+  kubernetes.core.helm_repository:
+    name: stable
+    repo_url: "https://kubernetes.github.io/ingress-nginx"
+
+- name: Install/upgrade ingress-nginx via Helm
+  kubernetes.core.helm:
+    name: ingress-nginx
+    chart_ref: ingress-nginx
+    chart_repo_url: https://kubernetes.github.io/ingress-nginx
+    release_namespace: ingress-nginx
+    create_namespace: true
+    state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Wait for ingress controller to be ready
+  kubernetes.core.k8s_info:
+    api_version: apps/v1
+    kind: Deployment
+    name: ingress-nginx-controller
+    namespace: ingress-nginx
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  register: ingress_deployment
+  until: ingress_deployment.resources[0].status.readyReplicas is defined and ingress_deployment.resources[0].status.readyReplicas > 0
+  retries: 10
+  delay: 30

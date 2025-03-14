@@ -1,0 +1,16 @@
+---
+- name: Install MetalLB
+  become: true
+  shell: kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13.10/config/manifests/metallb-native.yaml --kubeconfig=/home/{{ ansible_user }}/.kube/config
+
+- name: Set IP pool
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'ip-pool.yml.j2') }}"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Set Layer 2 configuration
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'L2-adv.yml.j2') }}"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"

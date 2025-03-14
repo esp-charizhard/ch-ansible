@@ -2,6 +2,12 @@
 - name: Include task to setup stuff
   ansible.builtin.include_tasks: setup.yml
 
+- name: Include task to setup external load balancer
+  ansible.builtin.include_tasks: setup_load_balancer.yml
+
+- name: Include task to setup ingress-controller
+  ansible.builtin.include_tasks: setup_ingress_controller.yml
+
 - name: Include task to init minio
   ansible.builtin.include_tasks: init_minio_2.yml
 

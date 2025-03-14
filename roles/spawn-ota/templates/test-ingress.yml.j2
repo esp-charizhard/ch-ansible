@@ -1,17 +1,17 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ingress-myservicea
+  name: ingress-ota
 spec:
   rules:
-  - host: myservicea.foo.org
+  - host: test.ota.org
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: myservicea
+            name: ota-service
             port:
               number: 80
   ingressClassName: nginx
@@ -19,17 +19,17 @@ spec:
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ingress-myserviceb
+  name: ingress-ch-server
 spec:
   rules:
-  - host: myserviceb.foo.org
+  - host: test.charizhard-server.org
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: myserviceb
+            name: charizhard-server-service
             port:
-              number: 80
+              number: 8080
   ingressClassName: nginx
