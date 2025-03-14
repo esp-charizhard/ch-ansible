@@ -19,6 +19,17 @@ To launch this playbook, use this command :
 ```
 ansible-playbook k8s-prep.yml --vault-password-file vault_pass.txt
 ```
+### ota-launch.yml
+Playbook to deploy all microservices
+
+1 role :
+- **spawn-ota**: On the control-plane, to deploy the ota, minio object storage and keycloak
+
+To launch this playbook, use this command :
+
+```
+ansible-playbook ota-launch.yml --vault-password-file vault_pass.txt
+```
 
 ### clean.yml
 
