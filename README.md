@@ -58,7 +58,7 @@ ansible-playbook clean.yml --vault-password-file vault_pass.txt
     - [x] Set up worker node
     - [x] Set up small app
     - [x] Expose app
-    - [ ] Set up Ingress service
+    - [x] Set up Ingress service
     - [x] Get OTA microservice deployment
     - [ ] Set up Keycloak deployment
     - [x] Set up database for replicas pods
