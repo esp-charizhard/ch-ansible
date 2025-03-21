@@ -80,7 +80,6 @@
           nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
           cert-manager.io/cluster-issuer: cert-manager-webhook-duckdns-production
           nginx.ingress.kubernetes.io/use-regex: "true"
-          nginx.ingress.kubernetes.io/backend-protocol: "HTTP"
       spec:
         ingressClassName: nginx
         tls:

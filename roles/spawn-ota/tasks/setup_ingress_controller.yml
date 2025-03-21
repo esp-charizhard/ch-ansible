@@ -1,18 +1,22 @@
----
-- name: Add nginx chart repo
-  kubernetes.core.helm_repository:
-    name: stable
-    repo_url: "https://kubernetes.github.io/ingress-nginx"
+- name: Apply ingress-nginx (ta mere)
+  shell: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/baremetal/deploy.yaml --kubeconfig=/home/{{ ansible_user }}/.kube/config
+  failed_when: false
 
-- name: Install/upgrade ingress-nginx via Helm
-  kubernetes.core.helm:
-    name: ingress-nginx
-    chart_ref: ingress-nginx
-    chart_repo_url: https://kubernetes.github.io/ingress-nginx
-    release_namespace: ingress-nginx
-    create_namespace: true
-    state: present
+- name: Patch ingress-nginx service to LoadBalancer
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Service
+    name: ingress-nginx-controller
+    namespace: ingress-nginx
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    resource_definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: ingress-nginx-controller
+        namespace: ingress-nginx
+      spec:
+        type: LoadBalancer
 
 - name: Wait for ingress controller to be ready
   kubernetes.core.k8s_info:
