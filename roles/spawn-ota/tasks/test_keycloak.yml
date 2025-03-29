@@ -4,33 +4,18 @@
   shell: kubectl  create -f https://raw.githubusercontent.com/keycloak/keycloak-quickstarts/refs/heads/main/kubernetes/keycloak.yaml --kubeconfig=/home/{{ ansible_user }}/.kube/config
   failed_when: false
 
-#- name: Create Keycloak Ingress
-#  kubernetes.core.k8s:
-#    state: present
-#    definition:
-#      apiVersion: networking.k8s.io/v1
-#      kind: Ingress
-#      metadata:
-#        name: keycloak-ingress
-#        namespace: default
-#        annotations:
-#          kubernetes.io/ingress.class: nginx
-#          nginx.ingress.kubernetes.io/ssl-redirect: "true"
-#          nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
-#      spec:
-#        tls:
-#          - hosts:
-#              - charizhard-keycloak.duckdns.org
-#            secretName: example-tls-secret
-#        rules:
-#          - host: charizhard-keycloak.duckdns.org
-#            http:
-#              paths:
-#                - path: /
-#                  pathType: Prefix
-#                  backend:
-#                    service:
-#                      name: keycloak
-#                      port:
-#                        name: http
-#    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+- name: Patch keycloak service name
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: Service
+    name: keycloak
+    namespace: default
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    resource_definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: keycloak-service
+        namespace: default
+      spec:
+        type: LoadBalancer

@@ -17,8 +17,8 @@
 #- name: Include task to init keycloak test
 #  ansible.builtin.include_tasks: test_keycloak.yml
 
-# - name: Include task to init keycloak
-#   ansible.builtin.include_tasks: init_keycloak.yml
+- name: Include task to init keycloak
+  ansible.builtin.include_tasks: init_keycloak.yml
 
 - name: Include task to create ota pod
   ansible.builtin.include_tasks: init_ota.yml
@@ -26,5 +26,8 @@
 - name: Include task to create charizhard-server
   ansible.builtin.include_tasks: init_charizhard_server.yml
 
-#- name: Include task to create metrics
-#  ansible.builtin.include_tasks: init_metrics.yml
+- name: Include task to create charizhard-opt
+  ansible.builtin.include_tasks: init_opt.yml
+
+- name: Include task to create metrics
+  ansible.builtin.include_tasks: init_metrics.yml

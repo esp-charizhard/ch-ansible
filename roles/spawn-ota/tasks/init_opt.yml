@@ -1,0 +1,163 @@
+---
+
+
+- name: Create ConfigMap for charizhard-otp configuration files
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: charizhard-configs
+        namespace: default
+      data:
+        otp.json: |
+          {
+            "123454321": {
+              "is_set": 0,
+              "mail": "gilles@entreprise.com"
+            },
+            "147258369": {
+              "is_set": 0,
+              "mail": "elodie@designhouse.io"
+            },
+            "159357258": {
+              "is_set": 0,
+              "mail": "paul@industry.com"
+            },
+            "258147369": {
+              "is_set": 0,# Task to deploy charizhard-otp microservice
+              "mail": "isabelle@fintech.biz"
+            },
+            "357159852": {
+              "is_set": 0,
+              "mail": "sophie@techworld.io"
+            },
+            "357258159": {
+              "is_set": 0,
+              "mail": "charlotte@marketing.biz"
+            },
+            "369258147": {
+              "is_set": 0,
+              "mail": "nicolas@engineering.net"
+            },
+            "456789123": {
+              "is_set": 0,
+              "mail": "jean@commerce.net"
+            },
+            "654852147": {
+              "is_set": 0,
+              "mail": "julie@consulting.fr"
+            },
+            "789123456": {
+              "is_set": 0,
+              "mail": "lucie@startup.org"
+            },
+            "852147369": {
+              "is_set": 0,
+              "mail": "bernard@entrepreneur.org"
+            },
+            "852456753": {
+              "is_set": 0,
+              "mail": "antoine@webservices.net"
+            },
+            "951753852": {
+              "is_set": 0,
+              "mail": "mathieu@innovation.com"
+            },
+            "987654321": {
+              "is_set": 0,
+              "mail": "marie@business.com"
+            }
+          }
+
+- name: Create secret for asthafinito/charizhard-opt
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'secret-opt.yml') }}"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Deploy charizhard-otp
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: charizhard-otp
+        namespace: default
+        labels:
+          app: charizhard-otp
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: charizhard-otp
+        template:
+          metadata:
+            labels:
+              app: charizhard-otp
+          spec:
+            containers:
+            - name: charizhard-otp
+              image: asthafinito/charizhard-opt
+              imagePullPolicy: Always
+              ports:
+              - containerPort: 8443
+              readinessProbe:
+                httpGet:
+                  path: /
+                  port: 8443
+                initialDelaySeconds: 10
+                periodSeconds: 5
+              livenessProbe:
+                httpGet:
+                  path: /
+                  port: 8443
+                initialDelaySeconds: 15
+                periodSeconds: 10
+              volumeMounts:
+              - mountPath: /app/temp_certif
+                name: temp-certif
+              - mountPath: /app/example_json_config.json
+                name: example-json-config
+                subPath: example_json_config.json
+              - mountPath: /app/otp.json
+                name: otp-config
+                subPath: otp.json
+            volumes:
+            - name: temp-certif
+              emptyDir: {}
+            - name: example-json-config
+              secret:
+                secretName: secret-opt
+                items:
+                - key: example_json_config.json
+                  path: example_json_config.json
+            - name: otp-config
+              configMap:
+                name: charizhard-configs
+                items:
+                - key: otp.json
+                  path: otp.json
+    
+# Task to create Service for charizhard-otp
+- name: Create Service for charizhard-otp
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: charizard-otp-service
+        namespace: default
+      spec:
+        selector:
+          app: charizhard-otp
+        ports:
+        - port: 8443
+          targetPort: 8443
+        type: ClusterIP
