@@ -27,7 +27,6 @@
         - --dns01-recursive-nameservers=8.8.8.8:53,1.1.1.1:53
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
-
 - name: Clone DuckDNS webhook repo
   ansible.builtin.git:
     repo: https://github.com/ebrianne/cert-manager-webhook-duckdns.git
@@ -49,5 +48,18 @@
         staging:
           create: true
         email: amorroni@protonmail.com
-      logLevel: 2
+      logLevel: 4 #modif log level to debug
+      podDnsPolicy: "None"
+      podDnsConfig:
+        nameservers:
+          - "1.1.1.1" # Cloudflare DNS
+          - "8.8.8.8" # Google DNS
+          - "9.9.9.9" # Quad9 DNS as additional fallback
+        options:
+          - name: "ndots"
+            value: "2" # Reduce DNS lookup overhead
+          - name: "timeout"
+            value: "5" # DNS query timeout in seconds
+          - name: "attempts"
+            value: "3" # Retry attempts for DNS queries
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"

@@ -1,6 +1,4 @@
 ---
-
-
 - name: Create ConfigMap for charizhard-otp configuration files
   kubernetes.core.k8s:
     state: present
@@ -78,6 +76,22 @@
     definition: "{{ lookup('template', 'secret-opt.yml') }}"
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
+- name: Create Secret for certificates
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: charizhard-certificates
+        namespace: default
+      type: Opaque
+      data:
+        ca.crt: "{{ lookup('file', 'certs/ca.crt') | b64encode }}"
+        certif_charizhard: "{{ lookup('file', 'certs/certif_charizhard.crt') | b64encode }}"
+        key_charizhard.key: "{{ lookup('file', 'certs/key_charizhard.key') | b64encode }}"
+
 - name: Deploy charizhard-otp
   kubernetes.core.k8s:
     state: present
@@ -102,25 +116,22 @@
           spec:
             containers:
             - name: charizhard-otp
-              image: asthafinito/charizhard-opt
+              image: asthafinito/charizhard-otp
               imagePullPolicy: Always
               ports:
               - containerPort: 8443
-              readinessProbe:
-                httpGet:
-                  path: /
-                  port: 8443
-                initialDelaySeconds: 10
-                periodSeconds: 5
-              livenessProbe:
-                httpGet:
-                  path: /
-                  port: 8443
-                initialDelaySeconds: 15
-                periodSeconds: 10
               volumeMounts:
               - mountPath: /app/temp_certif
                 name: temp-certif
+              - mountPath: /app/temp_certif/ca.crt
+                name: certificates
+                subPath: ca.crt
+              - mountPath: /app/temp_certif/certif_charizhard.crt
+                name: certificates
+                subPath: certif_charizhard.crt
+              - mountPath: /app/temp_certif/key_charizhard.key
+                name: certificates
+                subPath: key_charizhard.key
               - mountPath: /app/example_json_config.json
                 name: example-json-config
                 subPath: example_json_config.json
@@ -132,18 +143,20 @@
               emptyDir: {}
             - name: example-json-config
               secret:
-                secretName: secret-opt
+                secretName: secret-otp
                 items:
                 - key: example_json_config.json
                   path: example_json_config.json
+            - name: certificates
+              secret:
+                secretName: charizhard-certificates
             - name: otp-config
               configMap:
                 name: charizhard-configs
                 items:
                 - key: otp.json
                   path: otp.json
-    
-# Task to create Service for charizhard-otp
+
 - name: Create Service for charizhard-otp
   kubernetes.core.k8s:
     state: present
@@ -160,4 +173,4 @@
         ports:
         - port: 8443
           targetPort: 8443
-        type: ClusterIP
+        type: LoadBalancer

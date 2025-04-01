@@ -17,6 +17,7 @@
         namespace: ingress-nginx
       spec:
         type: LoadBalancer
+        hostNetwork: true
 
 - name: Wait for ingress controller to be ready
   kubernetes.core.k8s_info:
