@@ -29,5 +29,5 @@
 - name: Include task to create charizhard-opt
   ansible.builtin.include_tasks: init_opt.yml
 
-- name: Include task to create metrics
-  ansible.builtin.include_tasks: init_metrics.yml
+#- name: Include task to create metrics
+#  ansible.builtin.include_tasks: init_metrics.yml

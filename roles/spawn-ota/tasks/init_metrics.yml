@@ -228,20 +228,9 @@
         ingressClassName: nginx
         tls:
           - hosts:
-              - '*.charizhard-grafana.duckdns.org'
               - charizhard-grafana.duckdns.org
             secretName: grafana-tls-production
         rules:
-          - host: '*.charizhard-grafana.duckdns.org'
-            http:
-              paths:
-                - path: /
-                  pathType: Prefix
-                  backend:
-                    service:
-                      name: grafana
-                      port:
-                        name: http
           - host: charizhard-grafana.duckdns.org
             http:
               paths:
@@ -251,5 +240,5 @@
                     service:
                       name: grafana
                       port:
-                        name: http
+                        name: service
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"

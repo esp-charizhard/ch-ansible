@@ -17,7 +17,60 @@
         namespace: ingress-nginx
       spec:
         type: LoadBalancer
-        hostNetwork: true
+
+- name: Traffic for UDP setup
+  kubernetes.core.k8s:
+    api_version: v1
+    kind: ConfigMap
+    name: udp-services
+    namespace: ingress-nginx
+    state: present
+    resource_definition:
+      metadata:
+        name: udp-services
+        namespace: ingress-nginx
+      data:
+        "51820": "default/charizhard-server-service:51820"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Increase ingress-nginx controller verbosity
+  kubernetes.core.k8s:
+    api_version: apps/v1
+    kind: Deployment
+    name: ingress-nginx-controller
+    namespace: ingress-nginx
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    merge_type: strategic-merge
+    definition:
+      spec:
+        template:
+          spec:
+            containers:
+            - name: controller
+              args:
+              - /nginx-ingress-controller
+              - --election-id=ingress-nginx-leader
+              - --controller-class=k8s.io/ingress-nginx
+              - --ingress-class=nginx
+              - --configmap=$(POD_NAMESPACE)/ingress-nginx-controller
+              - --validating-webhook=:8443
+              - --validating-webhook-certificate=/usr/local/certificates/cert
+              - --validating-webhook-key=/usr/local/certificates/key
+              - --udp-services-configmap=ingress-nginx/udp-services
+              - --enable-ssl-passthrough
+              - --v=4  # Increased verbosity level
+              env:
+              - name: POD_NAME
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.name
+              - name: POD_NAMESPACE
+                valueFrom:
+                  fieldRef:
+                    fieldPath: metadata.namespace
+              - name: ERROR_LOG_LEVEL
+                value: "debug"  # Set Nginx error log level to debug
+
 
 - name: Wait for ingress controller to be ready
   kubernetes.core.k8s_info:

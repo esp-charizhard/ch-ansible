@@ -128,20 +128,9 @@
         ingressClassName: nginx
         tls:
           - hosts:
-              - '*.charizhard.duckdns.org'
               - charizhard.duckdns.org
             secretName: ota-tls-production
         rules:
-          - host: '*.charizhard.duckdns.org'
-            http:
-              paths:
-                - path: /
-                  pathType: Prefix
-                  backend:
-                    service:
-                      name: ota-service
-                      port:
-                        name: http
           - host: charizhard.duckdns.org
             http:
               paths:
