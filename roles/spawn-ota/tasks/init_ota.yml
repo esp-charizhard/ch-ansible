@@ -11,7 +11,7 @@
         labels:
           app: ota
       spec:
-        replicas: 2
+        replicas: 1
         selector:
           matchLabels:
             app: ota
@@ -55,36 +55,81 @@
       kind: Service
       metadata:
         name: ota-service
-        namespace: default  # Match the namespace above
+        namespace: default  
       spec:
         selector:
           app: ota
         ports:
         - protocol: TCP
-          port: 80  # External port
-          targetPort: 8081  # Port the container listens on
-        type: LoadBalancer  # Use NodePort or ClusterIP if no external LB is desired
+          port: 80 
+          targetPort: 8081  
+          name: http
+        type: ClusterIP
 
-- name: Create OTA Ingress
+#- name: Create OTA Ingress
+#  kubernetes.core.k8s:
+#    state: present
+#    definition:
+#      apiVersion: networking.k8s.io/v1
+#      kind: Ingress
+#      metadata:
+#        name: ota-ingress
+#        namespace: default
+#        annotations:
+#          kubernetes.io/ingress.class: nginx
+#          nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+#          cert-manager.io/cluster-issuer: cert-manager-webhook-duckdns-staging
+#          nginx.ingress.kubernetes.io/use-regex: "true"
+#      spec:
+#        ingressClassName: nginx
+#        tls:
+#          - hosts:
+#              - '*.charizhard.duckdns.org'
+#              - charizhard.duckdns.org
+#            secretName: ota-tls-staging
+#        rules:
+#          - host: '*.charizhard.duckdns.org'
+#            http:
+#              paths:
+#                - path: /
+#                  pathType: Prefix
+#                  backend:
+#                    service:
+#                      name: ota-service
+#                      port:
+#                        name: http
+#          - host: charizhard.duckdns.org
+#            http:
+#              paths:
+#                - path: /
+#                  pathType: Prefix
+#                  backend:
+#                    service:
+#                      name: ota-service
+#                      port:
+#                        name: http
+#    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Create OTA Ingress prod
   kubernetes.core.k8s:
     state: present
     definition:
       apiVersion: networking.k8s.io/v1
       kind: Ingress
       metadata:
-        name: ota-ingress
+        name: ota-ingress-prod
         namespace: default
         annotations:
           kubernetes.io/ingress.class: nginx
-          nginx.ingress.kubernetes.io/ssl-redirect: "true"
           nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
-          cert-manager.io/issuer: "letsencrypt-prod"
+          cert-manager.io/cluster-issuer: cert-manager-webhook-duckdns-production
+          nginx.ingress.kubernetes.io/use-regex: "true"
       spec:
         ingressClassName: nginx
         tls:
           - hosts:
               - charizhard.duckdns.org
-            secretName: quickstart-example-tls
+            secretName: ota-tls-production
         rules:
           - host: charizhard.duckdns.org
             http:

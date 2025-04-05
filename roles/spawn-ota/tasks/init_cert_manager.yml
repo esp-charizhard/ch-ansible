@@ -12,7 +12,6 @@
     state: present
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
-
 - name: Install/upgrade cert-manager via Helm
   kubernetes.core.helm:
     name: cert-manager
@@ -23,28 +22,44 @@
     state: present
     values:
       installCRDs: true
+      extraArgs:
+        - --dns01-recursive-nameservers-only
+        - --dns01-recursive-nameservers=8.8.8.8:53,1.1.1.1:53
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-  
-- name: Create Let's Encrypt Issuer production
-  kubernetes.core.k8s:
+
+- name: Clone DuckDNS webhook repo
+  ansible.builtin.git:
+    repo: https://github.com/ebrianne/cert-manager-webhook-duckdns.git
+    dest: "{{ ansible_user_dir }}/cert-manager-webhook-duckdns"
+    force: yes
+
+- name: Install DuckDNS webhook Helm chart
+  kubernetes.core.helm:
+    name: cert-manager-webhook-duckdns
+    chart_ref: "{{ ansible_user_dir }}/cert-manager-webhook-duckdns/deploy/cert-manager-webhook-duckdns"
+    release_namespace: cert-manager
     state: present
-    definition:
-      apiVersion: cert-manager.io/v1
-      kind: Issuer
-      metadata:
-        name: letsencrypt-prod
-        namespace: default
-      spec:
-        acme:
-          # The ACME server URL
-          server: https://acme-v02.api.letsencrypt.org/directory
-          # Email address used for ACME registration
-          email: amorroni@protonmail.com
-          # Name of a secret used to store the ACME account private key
-          privateKeySecretRef:
-            name: letsencrypt-prod
-          solvers:
-            - dns01:
-
+    values:
+      duckdns:
+        token: "{{ duckdns_token }}"
+      clusterIssuer:
+        production:
+          create: true
+        staging:
+          create: true
+        email: amorroni@protonmail.com
+      logLevel: 4 #modif log level to debug
+      podDnsPolicy: "None"
+      podDnsConfig:
+        nameservers:
+          - "1.1.1.1" # Cloudflare DNS
+          - "8.8.8.8" # Google DNS
+          - "9.9.9.9" # Quad9 DNS as additional fallback
+        options:
+          - name: "ndots"
+            value: "2" # Reduce DNS lookup overhead
+          - name: "timeout"
+            value: "5" # DNS query timeout in seconds
+          - name: "attempts"
+            value: "3" # Retry attempts for DNS queries
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-

@@ -1,76 +1,194 @@
-- name: Add Grafana Helm repository
-  kubernetes.core.helm_repository:
-    name: grafana
-    repo_url: "https://grafana.github.io/helm-charts"
 
-- name: Add Prometheus Helm repository
+- name: Add Helm repositories
   kubernetes.core.helm_repository:
-    name: prometheus-community
-    repo_url: "https://prometheus-community.github.io/helm-charts"
+    name: "{{ item.name }}"
+    repo_url: "{{ item.url }}"
+  loop:
+    - { name: grafana, url: "https://grafana.github.io/helm-charts" }
+    - { name: prometheus-community, url: "https://prometheus-community.github.io/helm-charts" }
+    - { name: jetstack, url: "https://charts.jetstack.io" }
 
-- name: Create namespace for monitoring
+
+- name: Create monitoring namespace
+
   kubernetes.core.k8s:
-    name: monitoring
+    name: "monitoring"
     api_version: v1
     kind: Namespace
     state: present
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
-# Install Prometheus
-- name: Install/upgrade Prometheus via Helm
+- name: Create volume for prometheus/grafana
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      kind: PersistentVolume
+      apiVersion: v1
+      metadata:
+        name: "{{ item.name }}"
+        labels:
+          type: local
+      spec:
+        persistentVolumeReclaimPolicy: Retain
+        storageClassName: local-storage
+        capacity:
+          storage: 15Gi
+        accessModes:
+          - ReadWriteOnce
+        hostPath:
+          path: "/home/{{ ansible_user }}/data/{{ item.name }}"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  loop:
+    - { name: "prometheus-pv-volume" }
+    - { name: "grafana-pv-volume" }
+
+- name: Create storage class
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: storage.k8s.io/v1
+      kind: StorageClass
+      metadata:
+        name: local-storage
+        annotations:
+          storageclass.kubernetes.io/is-default-class: "true"
+      provisioner: kubernetes.io/no-provisioner
+      volumeBindingMode: WaitForFirstConsumer
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Install kube-state-metrics
   kubernetes.core.helm:
-    name: prometheus
+    name: kube-state-metrics
+    chart_ref: prometheus-community/kube-state-metrics
+    release_namespace: "monitoring"
+    create_namespace: false
+    state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    values:
+      resources:
+        limits:
+          cpu: 100m
+          memory: 256Mi
+        requests:
+          cpu: 50m
+          memory: 128Mi
+
+- name: Install Prometheus
+  kubernetes.core.helm:
+    name:  prometheus
     chart_ref: prometheus
     chart_repo_url: https://prometheus-community.github.io/helm-charts
-    release_namespace: monitoring
-    create_namespace: true
+    release_namespace: "monitoring"
+    create_namespace: false
     state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
     values:
       alertmanager:
         enabled: false
       pushgateway:
         enabled: false
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+      server:
+        securityContext:
+          runAsUser: 0
+          runAsNonRoot: false
+          runAsGroup: 0
+          fsGroup: 0
+        persistentVolume:
+          enabled: true
+          storageClass: local-storage
+          size: 10Gi
+        resources:
+          limits:
+            cpu: 500m
+            memory: 1Gi
+          requests:
+            cpu: 250m
+            memory: 512Mi
+      nodeExporter:
+        enabled: true
 
-# Install Loki
-- name: Install/upgrade Loki via Helm
+- name: Install Loki
   kubernetes.core.helm:
     name: loki
-    chart_ref: loki
+    chart_ref: grafana
+    release_namespace: "monitoring"
     chart_repo_url: https://grafana.github.io/helm-charts
-    release_namespace: monitoring
-    create_namespace: true
+    create_namespace: false
     state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
     values:
       loki:
         auth_enabled: false
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+        storage:
+          type: pvc
+          pvc:
+            size: 10Gi
+      resources:
+        limits:
+          cpu: 300m
+          memory: 768Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
+      persistence:
+        storageClass: local-storage
+        size: 10Gi
 
-# Install Tempo
-- name: Install/upgrade Tempo via Helm
+- name: Install Tempo
   kubernetes.core.helm:
     name: tempo
-    chart_ref: tempo
+    chart_ref: grafana
     chart_repo_url: https://grafana.github.io/helm-charts
-    release_namespace: monitoring
-    create_namespace: true
+    release_namespace: "monitoring"
+    create_namespace: false
     state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
     values:
       tempo:
         search_enabled: true
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+      storage:
+        pvc:
+          size: 10Gi
+      resources:
+        limits:
+          cpu: 300m
+          memory: 768Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
 
-# Install Grafana
-- name: Install/upgrade Grafana via Helm
+- name: Create Grafana admin secret
+  kubernetes.core.k8s:
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: grafana-admin-secret
+        namespace: "monitoring"
+      type: Opaque
+      stringData:
+        admin-user: "admin"
+        admin-password: "admin"
+
+- name: Install Grafana
   kubernetes.core.helm:
     name: grafana
     chart_ref: grafana
     chart_repo_url: https://grafana.github.io/helm-charts
-    release_namespace: monitoring
-    create_namespace: true
+    release_namespace: "monitoring"
+    create_namespace: false
     state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
     values:
-      adminPassword: "admin"
+      admin:
+        existingSecret: grafana-admin-secret
+        userKey: admin-user
+        passwordKey: admin-password
+      persistence:
+        enabled: "true"
+        storageClass: local-storage
+        size: 5Gi
       datasources:
         datasources.yaml:
           apiVersion: 1
@@ -90,49 +208,43 @@
               type: tempo
               url: http://tempo.monitoring.svc.cluster.local:3200
               access: proxy
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+      resources:
+        limits:
+          cpu: 300m
+          memory: 512Mi
+        requests:
+          cpu: 100m
+          memory: 256Mi
 
-# Verify installations
-- name: Verify Prometheus installation
-  kubernetes.core.k8s_info:
-    kind: Pod
-    namespace: monitoring
-    label_selectors:
-      - app=prometheus
+- name: Create grafana Ingress
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: grafana-ingress
+        namespace: monitoring
+        annotations:
+          kubernetes.io/ingress.class: nginx
+          nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+          cert-manager.io/cluster-issuer: cert-manager-webhook-duckdns-production
+          nginx.ingress.kubernetes.io/use-regex: "true"
+      spec:
+        ingressClassName: nginx
+        tls:
+          - hosts:
+              - charizhard-grafana.duckdns.org
+            secretName: grafana-tls-production
+        rules:
+          - host: charizhard-grafana.duckdns.org
+            http:
+              paths:
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: grafana
+                      port:
+                        name: service
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-  register: prometheus_pods
-
-- name: Verify Loki installation
-  kubernetes.core.k8s_info:
-    kind: Pod
-    namespace: monitoring
-    label_selectors:
-      - app=loki
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-  register: loki_pods
-
-- name: Verify Tempo installation
-  kubernetes.core.k8s_info:
-    kind: Pod
-    namespace: monitoring
-    label_selectors:
-      - app=tempo
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-  register: tempo_pods
-
-- name: Verify Grafana installation
-  kubernetes.core.k8s_info:
-    kind: Pod
-    namespace: monitoring
-    label_selectors:
-      - app=grafana
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-  register: grafana_pods
-
-- name: Print installation status
-  debug:
-    msg:
-      - "Prometheus Pods: {{ prometheus_pods.resources | map(attribute='metadata.name') | list }}"
-      - "Loki Pods: {{ loki_pods.resources | map(attribute='metadata.name') | list }}"
-      - "Tempo Pods: {{ tempo_pods.resources | map(attribute='metadata.name') | list }}"
-      - "Grafana Pods: {{ grafana_pods.resources | map(attribute='metadata.name') | list }}"
