@@ -1,3 +1,4 @@
+
 - name: Add Helm repositories
   kubernetes.core.helm_repository:
     name: "{{ item.name }}"
@@ -7,7 +8,9 @@
     - { name: prometheus-community, url: "https://prometheus-community.github.io/helm-charts" }
     - { name: jetstack, url: "https://charts.jetstack.io" }
 
+
 - name: Create monitoring namespace
+
   kubernetes.core.k8s:
     name: "monitoring"
     api_version: v1
@@ -191,14 +194,17 @@
           apiVersion: 1
           datasources:
             - name: Prometheus
+              uid: prometheus_uid
               type: prometheus
               url: http://prometheus-server.monitoring.svc.cluster.local
               access: proxy
             - name: Loki
+              uid: loki_uid
               type: loki
               url: http://loki.monitoring.svc.cluster.local:3100
               access: proxy
             - name: Tempo
+              uid: tempo_uid
               type: tempo
               url: http://tempo.monitoring.svc.cluster.local:3200
               access: proxy
