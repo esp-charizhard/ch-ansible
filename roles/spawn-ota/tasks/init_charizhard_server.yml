@@ -53,21 +53,8 @@
                 memory: 256Mi
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
-#- name: create configMap for udp loadbalancing
-#  kubernetes.core.k8s:
-#    state: present
-#    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-#    definition:
-#      apiVersion: v1
-#      kind: ConfigMap
-#      metadata:
-#        name: udp-services
-#        namespace: ingress-nginx
-#      data:
-#        51820: "default/charizhard-server:51820"
 
-
-- name: Create LoadBalancer service for charizhard-server (both WireGuard and HTTP)
+- name: Create LoadBalancer service for charizhard-server
   kubernetes.core.k8s:
     state: present
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
@@ -95,6 +82,29 @@
           name: addpeer
         type: LoadBalancer
 
+- name: Create Endpoints for charizhard-server-service
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    definition:
+      apiVersion: v1
+      kind: Endpoints
+      metadata:
+        name: charizhard-server-service 
+        namespace: default
+      subsets:
+      - addresses:
+        - ip: "10.10.35.70"  # very sale exposition right there
+        ports:
+        - port: 51820
+          protocol: UDP
+          name: wireguard
+        - port: 8080
+          protocol: TCP
+          name: http
+        - port: 8081
+          protocol: TCP
+          name: addpeer
 
 
 #- name: Create charizhard-server Ingress

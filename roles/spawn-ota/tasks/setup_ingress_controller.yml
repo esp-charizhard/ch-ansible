@@ -17,6 +17,22 @@
         namespace: ingress-nginx
       spec:
         type: LoadBalancer
+        ports:
+        - name: http
+          port: 80
+          targetPort: 80
+          protocol: TCP
+        - name: https
+          port: 443
+          targetPort: 443
+          protocol: TCP
+        - name: wireguard
+          port: 51820
+          targetPort: 51820
+          protocol: UDP
+      selector:
+        app.kubernetes.io/name: ingress-nginx
+        app.kubernetes.io/part-of: ingress-nginx
 
 - name: Traffic for UDP setup
   kubernetes.core.k8s:
@@ -30,7 +46,7 @@
         name: udp-services
         namespace: ingress-nginx
       data:
-        "51820": "default/charizhard-server-service:51820"
+        "51820": "default/charizhard-server-service:wireguard"
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 - name: Increase ingress-nginx controller verbosity
