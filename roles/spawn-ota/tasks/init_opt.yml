@@ -90,7 +90,7 @@
         namespace: default
       type: Opaque
       data:
-        ca.crt: "{{ lookup('file', 'certs/ca.crt') | b64encode }}"
+        ca.crt: "{{ lookup('file', 'certs/yW3UzlL6YG13UqPu3J0B.crt') | b64encode }}"
         certif_charizhard.crt: "{{ lookup('file', 'certs/fullchain1.pem') | b64encode }}"
         key_charizhard.key: "{{ lookup('file', 'certs/privkey1.pem') | b64encode }}"
 
