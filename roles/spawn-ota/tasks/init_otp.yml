@@ -75,7 +75,7 @@
 - name: Create secret for asthafinito/charizhard-otp
   kubernetes.core.k8s:
     state: present
-    definition: "{{ lookup('template', 'secret-opt.yml') }}"
+    definition: "{{ lookup('template', 'secret-otp.yml') }}"
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 - name: Create Secret for certificates

@@ -14,9 +14,6 @@
 - name: Include task to init minio
   ansible.builtin.include_tasks: init_minio_2.yml
 
-#- name: Include task to init keycloak test
-#  ansible.builtin.include_tasks: test_keycloak.yml
-
 - name: Include task to init keycloak
   ansible.builtin.include_tasks: init_keycloak.yml
 
@@ -26,8 +23,8 @@
 - name: Include task to create charizhard-server
   ansible.builtin.include_tasks: init_charizhard_server.yml
 
-- name: Include task to create charizhard-opt
-  ansible.builtin.include_tasks: init_opt.yml
+- name: Include task to create charizhard-otp
+  ansible.builtin.include_tasks: init_otp.yml
 
 #- name: Include task to create metrics
 #  ansible.builtin.include_tasks: init_metrics.yml

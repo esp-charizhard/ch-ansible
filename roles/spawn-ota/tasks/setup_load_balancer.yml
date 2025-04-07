@@ -5,28 +5,39 @@
   register: metallb_install
 
 - name: Wait for MetalLB to be ready
-  kubernetes.core.k8s_info:
-    kind: deployment
-    name: metallb-controller
+  kubernetes.core.k8s:
+    kind: Deployment
+    name: controller
     namespace: metallb-system
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
   retries: 10
   delay: 6
   until: metallb_install.rc == 0
-  loop:
-    - metallb-controller
-    - metallb-speaker
-  loop_control:
-    loop_var: k8s_resource
 
 - name: Set IP pool
   kubernetes.core.k8s:
     state: present
-    definition: "{{ lookup('template', 'ip-pool.yml.j2') }}"
+    definition:
+      apiVersion: metallb.io/v1beta1
+      kind: IPAddressPool
+      metadata:
+        name: first-pool
+        namespace: metallb-system
+      spec:
+        addresses:
+        - 10.10.35.100-10.10.35.120
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 - name: Set Layer 2 configuration
   kubernetes.core.k8s:
     state: present
-    definition: "{{ lookup('template', 'L2-adv.yml.j2') }}"
+    definition:
+      apiVersion: metallb.io/v1beta1
+      kind: L2Advertisement
+      metadata:
+        name: example
+        namespace: metallb-system
+      spec:
+        ipAddressPools:
+        - first-pool
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
