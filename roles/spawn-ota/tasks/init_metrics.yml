@@ -246,4 +246,56 @@
                       name: grafana
                       port:
                         name: service
+      dashboardsConfigMaps:
+        - wireguard-dashboard
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Verify Prometheus installation
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: monitoring
+    label_selectors:
+      - app=prometheus
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  register: prometheus_pods
+
+- name: Verify Loki installation
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: monitoring
+    label_selectors:
+      - app=loki
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  register: loki_pods
+
+- name: Verify Tempo installation
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: monitoring
+    label_selectors:
+      - app=tempo
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  register: tempo_pods
+
+- name: Verify Grafana installation
+  kubernetes.core.k8s_info:
+    kind: Pod
+    namespace: monitoring
+    label_selectors:
+      - app=grafana
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  register: grafana_pods
+
+- name: Print installation status
+  debug:
+    msg:
+      - "Prometheus Pods: {{ prometheus_pods.resources | map(attribute='metadata.name') | list }}"
+      - "Loki Pods: {{ loki_pods.resources | map(attribute='metadata.name') | list }}"
+      - "Tempo Pods: {{ tempo_pods.resources | map(attribute='metadata.name') | list }}"
+      - "Grafana Pods: {{ grafana_pods.resources | map(attribute='metadata.name') | list }}"
+
+- name: Deploy Wireguard Dashboard ConfigMap
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('file', '../../../dashboard-wireguard.yaml') | from_yaml}}"
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
