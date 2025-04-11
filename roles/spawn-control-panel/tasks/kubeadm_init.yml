@@ -2,8 +2,13 @@
   block:
     - name: Initialize kubeadm
       become: true
-      shell: kubeadm init --pod-network-cidr=192.168.0.0/16
+      shell: kubeadm init --pod-network-cidr='{{ pod_network_cidr }}' --control-plane-endpoint 10.10.35.10 --upload-certs --cri-socket=unix:///var/run/containerd/containerd.sock   | tee /tmp/kubeadm_init_output.log
       register: join_message
+
+    - name: Debug kubeadm init output
+      debug:
+        var: join_message.stdout
+      when: join_message.stdout is defined
      
     - name: Create kube home config folder
       ansible.builtin.file:
@@ -27,7 +32,44 @@
         state: file
         owner: "{{ ansible_user }}"
         group: "{{ ansible_user }}"
-
+    
+    - name: Create improved extraction script
+      become: true
+      copy:
+        dest: /tmp/extract_join_commands.sh
+        mode: 0755
+        content: |
+          #!/bin/bash
+          # Extract complete control plane join command
+          SECTION=$(sed -n '/You can now join any number of control-plane nodes/,/certificate-key/p' /tmp/kubeadm_init_output.log)
+          CONTROL_PLANE_CMD=$(echo "$SECTION" | grep -E 'kubeadm join|--token|--discovery-token-ca-cert-hash|--control-plane|--certificate-key' | tr -d '\\' | tr '\n\t' ' ' | sed 's/  */ /g')
+          echo "CONTROL_PLANE_CMD=$CONTROL_PLANE_CMD"
+          
+          # Extract complete worker join command
+          SECTION=$(sed -n '/Then you can join any number of worker nodes/,/discovery-token-ca-cert-hash/p' /tmp/kubeadm_init_output.log)
+          WORKER_CMD=$(echo "$SECTION" | grep -E 'kubeadm join|--token|--discovery-token-ca-cert-hash' | tr -d '\\' | tr '\n\t' ' ' | sed 's/  */ /g')
+          echo "WORKER_CMD=$WORKER_CMD"
+      
+    - name: Run improved extraction script
+      become: true
+      command: /tmp/extract_join_commands.sh
+      register: script_output
+      
+    - name: Print script output for debugging
+      debug:
+        var: script_output.stdout_lines
+        
+    - name: Extract control plane join command from script output
+      set_fact:
+        control_plane_join_command: "{{ script_output.stdout | regex_search('CONTROL_PLANE_CMD=(.*)$', '\\1', multiline=True) | first }}"
+      failed_when: false
+      
+      
+    - name: Extract worker join command from script output
+      set_fact:
+        worker_join_command: "{{ script_output.stdout | regex_search('WORKER_CMD=(.*)$', '\\1', multiline=True) | first }}"
+      failed_when: false
+        
     - name: Wait for API server to be ready
       become: true
       shell: kubectl cluster-info --kubeconfig=/home/{{ ansible_user }}/.kube/config # TODO: put env var 
@@ -36,36 +78,6 @@
       retries: 5
       delay: 20
 
-  
-#    - name: Set Up Pod Network (flannel)
-#      become: true
-#      shell: kubectl create -f https://github.com/flannel-io/flannel/releases/latest/download/kube-flannel.yml --kubeconfig=/home/{{ ansible_user }}/.kube/config # TODO: put env var 
-#      register: flannel_install
-    
-    - name: Set Up Pod Network (calico new)
-      become: true
-      shell: kubectl create -f https://docs.projectcalico.org/manifests/calico.yaml --kubeconfig=/home/{{ ansible_user }}/.kube/config
-      register: calico_install
-      until: calico_install.rc == 0
-      retries: 3
-      delay: 10
-#
-#    - name: Set Up Calico Custom Resources
-#      become: true
-#      shell: kubectl apply -f https://raw.githubusercontent.com/projectcalico/calico/v3.29.2/manifests/custom-resources.yaml 
-#      register: calico_2
-#      until: calico_2.rc == 0
-#      retries: 3
-#      delay: 10
-#
-#    - name: Wait for Calico pods to be ready
-#      become: true
-#      shell: kubectl wait --for=condition=Ready pod -n calico-system --all --timeout=300s --kubeconfig=/home/{{ ansible_user }}/.kube/config
-#      register: calico_ready
-#      until: calico_ready.rc == 0
-#      retries: 5
-#      delay: 20
-  
   rescue:
     - name: Error while set up master, rescue
       ansible.builtin.include_tasks: rescue_master.yml

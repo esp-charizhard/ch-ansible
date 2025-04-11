@@ -1,0 +1,65 @@
+---
+- name: Add cert-manager repo 
+  kubernetes.core.helm_repository:
+    name: jetstack
+    repo_url: "https://charts.jetstack.io"
+
+- name: Create namespace for cert-manager
+  kubernetes.core.k8s:
+    name: cert-manager
+    api_version: v1
+    kind: Namespace
+    state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Install/upgrade cert-manager via Helm
+  kubernetes.core.helm:
+    name: cert-manager
+    chart_ref: cert-manager
+    chart_repo_url: https://charts.jetstack.io
+    release_namespace: cert-manager
+    create_namespace: true
+    state: present
+    values:
+      installCRDs: true
+      extraArgs:
+        - --dns01-recursive-nameservers-only
+        - --dns01-recursive-nameservers=8.8.8.8:53,1.1.1.1:53
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Clone DuckDNS webhook repo
+  ansible.builtin.git:
+    repo: https://github.com/ebrianne/cert-manager-webhook-duckdns.git
+    dest: "{{ ansible_user_dir }}/cert-manager-webhook-duckdns"
+    force: yes
+
+- name: Install DuckDNS webhook Helm chart
+  kubernetes.core.helm:
+    name: cert-manager-webhook-duckdns
+    chart_ref: "{{ ansible_user_dir }}/cert-manager-webhook-duckdns/deploy/cert-manager-webhook-duckdns"
+    release_namespace: cert-manager
+    state: present
+    values:
+      duckdns:
+        token: "{{ duckdns_token }}"
+      clusterIssuer:
+        production:
+          create: true
+        staging:
+          create: true
+        email: amorroni@protonmail.com
+      logLevel: 4 #modif log level to debug
+      podDnsPolicy: "None"
+      podDnsConfig:
+        nameservers:
+          - "1.1.1.1" # Cloudflare DNS
+          - "8.8.8.8" # Google DNS
+          - "9.9.9.9" # Quad9 DNS as additional fallback
+        options:
+          - name: "ndots"
+            value: "2" # Reduce DNS lookup overhead
+          - name: "timeout"
+            value: "5" # DNS query timeout in seconds
+          - name: "attempts"
+            value: "3" # Retry attempts for DNS queries
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"

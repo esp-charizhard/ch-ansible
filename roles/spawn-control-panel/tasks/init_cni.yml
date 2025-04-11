@@ -1,0 +1,32 @@
+---
+- name: Download Calico manifest
+  become: true
+  get_url:
+    url: https://docs.projectcalico.org/manifests/calico.yaml
+    dest: /tmp/calico.yaml
+    mode: '0644'
+
+- name: Modify Calico IP range
+  become: true
+  replace:
+    path: /tmp/calico.yaml
+    regexp: '192\.168\.0\.0/16'
+    replace: '192.168.150.0/24'
+    backup: yes
+
+- name: Set Up Pod Network (calico new)
+  become: true
+  shell: kubectl apply -f /tmp/calico.yaml --kubeconfig=/home/{{ ansible_user }}/.kube/config
+  register: calico_install
+  until: calico_install.rc == 0
+  retries: 3
+  delay: 10
+
+- name: Clean up temporary Calico manifest
+  become: true
+  file:
+    path: /tmp/calico.yaml
+    state: absent
+
+- name: Exclude wg0 interface
+  shell: kubectl set env daemonset/calico-node -n kube-system IP_AUTODETECTION_METHOD=skip-interface=wg0 --kubeconfig=/home/{{ ansible_user }}/.kube/config

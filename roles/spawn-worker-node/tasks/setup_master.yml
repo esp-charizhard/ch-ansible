@@ -1,0 +1,21 @@
+---
+# setup_master.yml - Tasks specific to setting up additional master nodes
+
+- name: Wait for API server to be ready
+  shell: kubectl cluster-info --kubeconfig=/home/{{ ansible_user }}/.kube/config
+  register: cluster_info
+  until: cluster_info.rc == 0
+  retries: 5
+  delay: 20
+  environment:
+    KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Verify control plane components
+  shell: kubectl get pods -n kube-system | grep -E 'apiserver|controller|scheduler' | grep {{ inventory_hostname }}
+  register: control_plane_check
+  until: control_plane_check.rc == 0
+  retries: 5
+  delay: 20
+  environment:
+    KUBECONFIG: "/home/{{ ansible_user }}/.kube/config"
+  ignore_errors: true

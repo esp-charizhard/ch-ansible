@@ -1,0 +1,21 @@
+---
+# setup_worker.yml - Tasks specific to worker nodes
+
+- name: Wait for node to appear in cluster
+  delegate_to: "{{ groups['master_nodes'][0] }}"
+  shell: kubectl get nodes | grep {{ inventory_hostname }}
+  register: node_check
+  until: node_check.rc == 0
+  retries: 10
+  delay: 10
+  ignore_errors: true
+
+- name: Check node status
+  delegate_to: "{{ groups['master_nodes'][0] }}"
+  shell: kubectl get nodes {{ inventory_hostname }} -o jsonpath='{.status.conditions[?(@.type=="Ready")].status}'
+  register: node_ready
+  until: node_ready.stdout == "True"
+  retries: 5
+  delay: 20
+  ignore_errors: true
+

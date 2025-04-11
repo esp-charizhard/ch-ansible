@@ -1,0 +1,142 @@
+- name: Ensure kubernetes pki directory exists
+  file:
+    path: "/etc/kubernetes/pki"
+    state: directory
+    mode: '0700'
+    owner: root
+    group: root
+
+- name: Create certificate gathering script on kingslanding
+  copy:
+    dest: /tmp/gather_k8s_certs.sh
+    mode: 0755
+    content: |
+      #!/bin/bash
+      mkdir -p /tmp/k8s_certs
+      cp -r /etc/kubernetes/pki/ca.crt /tmp/k8s_certs/
+      cp -r /etc/kubernetes/pki/ca.key /tmp/k8s_certs/
+      cp -r /etc/kubernetes/pki/sa.key /tmp/k8s_certs/
+      cp -r /etc/kubernetes/pki/sa.pub /tmp/k8s_certs/
+      cp -r /etc/kubernetes/pki/front-proxy-ca.crt /tmp/k8s_certs/
+      cp -r /etc/kubernetes/pki/front-proxy-ca.key /tmp/k8s_certs/
+      cp -r /etc/kubernetes/pki/etcd/ca.crt /tmp/k8s_certs/etcd-ca.crt
+      cp -r /etc/kubernetes/pki/etcd/ca.key /tmp/k8s_certs/etcd-ca.key
+      cp -r /etc/kubernetes/admin.conf /tmp/k8s_certs/
+      sudo chmod -R 644 /tmp/k8s_certs/*
+      sudo tar -czf /tmp/k8s_certs.tar.gz -C /tmp k8s_certs
+      sudo chmod 644 /tmp/k8s_certs.tar.gz
+  when: inventory_hostname == 'kingslanding'
+  become: true
+
+- name: Run certificate gathering script on kingslanding
+  command: /tmp/gather_k8s_certs.sh
+  when: inventory_hostname == 'kingslanding'
+  become: true
+
+- name: Fetch certificates archive from kingslanding
+  fetch:
+    src: /tmp/k8s_certs.tar.gz
+    dest: /tmp/k8s_certs.tar.gz
+    flat: yes
+  when: inventory_hostname == 'kingslanding'
+  become: true
+
+- name: Copy certificates archive to secondary masters
+  copy:
+    src: /tmp/k8s_certs.tar.gz
+    dest: /tmp/k8s_certs.tar.gz
+  when: inventory_hostname in ['winterfell', 'castralroc']
+  become: true
+
+- name: Extract certificates on secondary masters
+  unarchive:
+    src: /tmp/k8s_certs.tar.gz
+    dest: /etc/kubernetes/
+    remote_src: yes
+  when: inventory_hostname in ['winterfell', 'castralroc']
+  become: true
+
+- name: Create proper directory structure for certificates on secondary masters
+  file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  with_items:
+    - /etc/kubernetes/pki
+    - /etc/kubernetes/pki/etcd
+  when: inventory_hostname in ['winterfell', 'castralroc']
+  become: true
+
+- name: Move certificates to proper locations on secondary masters
+  shell: |
+    cp /etc/kubernetes/k8s_certs/ca.crt /etc/kubernetes/pki/
+    cp /etc/kubernetes/k8s_certs/ca.key /etc/kubernetes/pki/
+    cp /etc/kubernetes/k8s_certs/sa.key /etc/kubernetes/pki/
+    cp /etc/kubernetes/k8s_certs/sa.pub /etc/kubernetes/pki/
+    cp /etc/kubernetes/k8s_certs/front-proxy-ca.crt /etc/kubernetes/pki/
+    cp /etc/kubernetes/k8s_certs/front-proxy-ca.key /etc/kubernetes/pki/
+    cp /etc/kubernetes/k8s_certs/etcd-ca.crt /etc/kubernetes/pki/etcd/ca.crt
+    cp /etc/kubernetes/k8s_certs/etcd-ca.key /etc/kubernetes/pki/etcd/ca.key
+    cp /etc/kubernetes/k8s_certs/admin.conf /etc/kubernetes/
+    chmod 600 /etc/kubernetes/pki/*.key
+    chmod 600 /etc/kubernetes/pki/etcd/*.key
+    chmod 600 /etc/kubernetes/admin.conf
+  when: inventory_hostname in ['winterfell', 'castralroc']
+  become: true
+
+- name: Clean up temp files
+  file:
+    path: "{{ item }}"
+    state: absent
+  with_items:
+    - /tmp/k8s_certs.tar.gz
+    - /tmp/k8s_certs
+    - /tmp/gather_k8s_certs.sh
+  become: true
+
+- name: Create kubelet directory
+  file:
+    path: "/var/lib/kubelet"
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
+  when: inventory_hostname != groups['master_nodes'][0]
+
+- name: Create kubelet config file
+  copy:
+    dest: "/var/lib/kubelet/config.yaml"
+    content: |
+      apiVersion: kubelet.config.k8s.io/v1beta1
+      kind: KubeletConfiguration
+      authentication:
+        anonymous:
+          enabled: false
+        webhook:
+          cacheTTL: 0s
+          enabled: true
+        x509:
+          clientCAFile: /etc/kubernetes/pki/ca.crt
+      authorization:
+        mode: Webhook
+        webhook:
+          cacheAuthorizedTTL: 0s
+          cacheUnauthorizedTTL: 0s
+      clusterDomain: cluster.local
+      clusterDNS:
+        - 10.96.0.10
+      podCIDR: 10.244.0.0/16
+    owner: root
+    group: root
+    mode: '0644'
+  register: config_file
+  when: inventory_hostname != groups['master_nodes'][0]
+
+- name: Restart kubelet service
+  systemd:
+    name: kubelet
+    state: restarted
+    daemon_reload: yes
+  when: 
+    - config_file.changed
+    - inventory_hostname != groups['master_nodes'][0]

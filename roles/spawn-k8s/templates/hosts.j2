@@ -4,3 +4,4 @@
 {% for host in groups['k8snodes'] %}
 {{ hostvars[host]['ansible_host'] }} {{ host }}
 {% endfor %}
+"{{ cluster_endpoint }} cluster-endpoint"

@@ -1,2 +1,7 @@
 kubeconfig_env:
   KUBECONFIG: /etc/kubernetes/admin.conf
+
+target_namespaces:
+  - default
+  - minio
+  - keycloak

@@ -1,0 +1,32 @@
+---
+- name: Install MetalLB
+  become: true
+  shell: kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13.10/config/manifests/metallb-native.yaml --kubeconfig=/home/{{ ansible_user }}/.kube/config
+  register: metallb_install
+
+- name: Wait for MetalLB to be ready
+  kubernetes.core.k8s_info:
+    kind: deployment
+    name: metallb-controller
+    namespace: metallb-system
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  retries: 10
+  delay: 6
+  until: metallb_install.rc == 0
+  loop:
+    - metallb-controller
+    - metallb-speaker
+  loop_control:
+    loop_var: k8s_resource
+
+- name: Set IP pool
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'ip-pool.yml.j2') }}"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Set Layer 2 configuration
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'L2-adv.yml.j2') }}"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"

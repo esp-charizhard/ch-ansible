@@ -1,27 +1,84 @@
-- name: Generate join token
-  shell: kubeadm token create --print-join-command
-  register: kubeadm_join_cmd
-  delegate_to: "{{ groups['master_nodes'][0] }}"
+---
 
-- set_fact:
-    kubeadm_join: "{{ kubeadm_join_cmd.stdout }}"
+- name: Debug control_plane_join_command
+  debug:
+    msg: "control_plane_join_command: {{ control_plane_join_command }}"
 
-- name: Store join command
-  copy:
-    content: "{{ kubeadm_join }}"
-    dest: "/etc/kubernetes/kubeadm-join.command"
+- name: Debug worker_join_command
+  debug:
+    msg: "worker_join_command: {{ worker_join_command }}"
 
-- name: Run kubeadm join
-  shell: "{{ kubeadm_join }} --ignore-preflight-errors=swap"
+- name: Run kubeadm join for master nodes
+  shell: "{{ control_plane_join_command }}"
   become: true
   register: join_result
+  failed_when: join_result.rc != 0 and 'already exists' not in join_result.stderr
+  when: is_master_node and inventory_hostname != groups['master_nodes'][0]
 
-- name: Check if kubeadm join was successful
-  debug:
-    msg: "Join command executed successfully."
-  when: join_result.rc == 0
+# 
+# 
+# # Replace the existing tasks with these for joining additional control plane nodes
+# - name: Join additional control plane nodes - generate fresh certificate key
+#   block:
+#     - name: Generate fresh certificate key for this control plane node
+#       shell: |
+#         CERT_KEY=$(kubeadm init phase upload-certs --upload-certs | tail -1)
+#         echo $CERT_KEY
+#       register: fresh_cert_key
+#       delegate_to: "{{ groups['master_nodes'][0] }}"
+#       run_once: true
+#       
+#     - name: Get join command for this control plane node
+#       shell: kubeadm token create --print-join-command
+#       register: fresh_join_cmd
+#       delegate_to: "{{ groups['master_nodes'][0] }}"
+#       
+#     - name: Set join command with fresh certificate key
+#       set_fact:
+#         kubeadm_join: "{{ fresh_join_cmd.stdout }} --control-plane --certificate-key {{ fresh_cert_key.stdout }}"
+#       
+#     - name: Run kubeadm join with fresh certificate key
+#       shell: "{{ kubeadm_join }} --ignore-preflight-errors=swap --cri-socket=unix:///var/run/containerd/containerd.sock"
+#       become: true
+#       register: join_result
+#       retries: 3
+#       delay: 10
+#       until: join_result.rc == 0 or 'already exists' in join_result.stderr
+#       failed_when: join_result.rc != 0 and 'already exists' not in join_result.stderr
+# 
+#   when: is_master_node and inventory_hostname != groups['master_nodes'][0]
+# 
+#
 
-- name: Handle kubeadm join failure
-  debug:
-    msg: "Failed to execute kubeadm join."
-  when: join_result.rc != 0
+
+- name: Run kubeadm join for worker nodes
+  shell: "{{ worker_join_command }}"
+  become: true
+  register: join_result
+  failed_when: join_result.rc != 0 and 'already exists' not in join_result.stderr
+  when: is_worker_node
+
+- name: Create .kube directory for user
+  file:
+    path: "/home/{{ ansible_user }}/.kube"
+    state: directory
+    mode: "0755"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+  when: is_master_node
+  
+- name: Copy kube config for additional control plane nodes
+  copy:
+    src: /etc/kubernetes/admin.conf
+    dest: "/home/{{ ansible_user }}/.kube/config"
+    remote_src: true
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: "0600"
+  when: is_master_node
+
+- name: Apply any worker node labels
+  delegate_to: "{{ groups['master_nodes'][0] }}"
+  shell: kubectl label nodes {{ inventory_hostname }} node-role.kubernetes.io/worker=worker --kubeconfig=/home/{{ ansible_user }}/.kube/config
+  ignore_errors: true
+  when: is_worker_node

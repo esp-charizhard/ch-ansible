@@ -19,32 +19,6 @@
     definition: "{{ lookup('template', 'keycloak-db-secret.yml') }}"
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
-- name: Read cert1.pem file
-  ansible.builtin.set_fact:
-    cert1:
-      content: "{{ lookup('file', 'certs/cert1.pem') | b64encode }}"
-
-- name: Read chain1.pem file
-  ansible.builtin.set_fact:
-    chain1:
-      content: "{{ lookup('file', 'certs/chain1.pem') | b64encode }}"
-
-- name: Read fullchain1.pem file
-  ansible.builtin.set_fact:
-    fullchain1:
-      content: "{{ lookup('file', 'certs/fullchain1.pem') | b64encode }}"
-
-- name: Read privkey1.pem file
-  ansible.builtin.set_fact:
-    privkey1:
-      content: "{{ lookup('file', 'certs/privkey1.pem') | b64encode }}"
-
-- name: Create TLS secret
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('template', 'secret-template.yml') }}"
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-
 - name: Create Keycloak ConfigMap for realms
   kubernetes.core.k8s:
     state: present
@@ -64,16 +38,17 @@
     state: present
     definition:
       apiVersion: apps/v1
-      kind: StatefulSet
+      kind: Deployment
       metadata:
         name: keycloak
         namespace: keycloak
+        labels:
+          app: keycloak
       spec:
         replicas: 1
         selector:
           matchLabels:
             app: keycloak
-        serviceName: keycloak-service
         template:
           metadata:
             labels:
@@ -81,82 +56,33 @@
           spec:
             containers:
               - name: keycloak
-                image: quay.io/keycloak/keycloak:latest
-                args: ["start", "--import-realm", "--verbose", "--health-enabled=true", "--metrics-enabled=true"]
+                image: quay.io/keycloak/keycloak:26.1.4
+                args: ["start" ]
                 env:
-                  - name: KC_DB
-                    value: postgres
-                  - name: KC_DB_URL
-                    value: jdbc:postgresql://postgres-db.keycloak.svc.cluster.local:5432/keycloak
-                  - name: KC_DB_USERNAME
-                    valueFrom:
-                      secretKeyRef:
-                        name: keycloak-db-secret
-                        key: username
-                  - name: KC_DB_PASSWORD
-                    valueFrom:
-                      secretKeyRef:
-                        name: keycloak-db-secret
-                        key: password
-                  - name: KC_HOSTNAME
-                    value: charizhard-keycloak.duckdns.org
+                  - name: KEYCLOAK_ADMIN
+                    value: "admin"
+                  - name: KEYCLOAK_ADMIN_PASSWORD
+                    value: "admin"
+                  - name: KC_PROXY_HEADERS
+                    value: "xforwarded"
                   - name: KC_HTTP_ENABLED
                     value: "true"
-                  - name: KC_HTTPS_CERTIFICATE_FILE
-                    value: "/etc/x509/https/fullchain.pem"
-                  - name: KC_HTTPS_CERTIFICATE_KEY_FILE
-                    value: "/etc/x509/https/privkey.pem"
                   - name: KC_HEALTH_ENABLED
                     value: "true"
-                  - name: JAVA_OPTS_APPEND
-                    value: "-Xms1G -Xmx3G -XX:+ExitOnOutOfMemoryError"
+                  - name: KC_HOSTNAME
+                    value: "charizhard-keycloak.duckdns.org"
                 ports:
                   - name: http
                     containerPort: 8080
-                  - name: https
-                    containerPort: 8443
-                startupProbe:
-                  httpGet:
-                    path: /realms/master #workaround
-                    port: 8080
-                  periodSeconds: 10
-                  failureThreshold: 30
-                  initialDelaySeconds: 60
                 readinessProbe:
                   httpGet:
-                    path: /realms/master
-                    port: 8080
-                  initialDelaySeconds: 90
-                  periodSeconds: 20
-                  failureThreshold: 30
-                  timeoutSeconds: 5
-                livenessProbe:
-                  httpGet:
-                    path: /realms/master #workaround, /ready/live doesn't for some reaseons
-                    port: 8080
-                  initialDelaySeconds: 180
-                  periodSeconds: 30
-                  timeoutSeconds: 10
-                  failureThreshold: 3
-                resources:
-                  requests:
-                    memory: "2Gi"
-                    cpu: "1"
-                  limits:
-                    memory: "4Gi"
-                    cpu: "2"
+                    path: /health/ready
+                    port: 9000
                 volumeMounts:
-                  - name: cert-volume
-                    mountPath: /etc/x509/https
-                    readOnly: true
-                  - name: realm-volume
-                    mountPath: /opt/keycloak/data/import
-                    readOnly: true
+                  - name: keycloak-config-volume
+                    mountPath: /etc/keycloak
             volumes:
-              - name: cert-volume
-                secret:
-                  secretName: example-tls-secret
-              - name: realm-volume
+              - name: keycloak-config-volume
                 configMap:
                   name: keycloak-config
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
@@ -184,39 +110,57 @@
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 
-- name: Wait for Keycloak pod to be ready
-  kubernetes.core.k8s_info:
-    kind: Pod
-    namespace: keycloak
-    label_selectors: app=keycloak
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-  register: kc_pod
-  until:
-    - kc_pod.resources is defined
-    - kc_pod.resources | length > 0
-    - kc_pod.resources[0].status.conditions is defined
-    - kc_pod.resources[0].status.conditions | selectattr('type', 'equalto', 'Ready') | selectattr('status', 'equalto', 'True') | list | length > 0
-  retries: 30
-  delay: 10
+#- name: Create Keycloak Ingress staging
+#  kubernetes.core.k8s:
+#    state: present
+#    definition:
+#      apiVersion: networking.k8s.io/v1
+#      kind: Ingress
+#      metadata:
+#        name: keycloak-ingress
+#        namespace: keycloak
+#        annotations:
+#          kubernetes.io/ingress.class: nginx
+#          nginx.ingress.kubernetes.io/ssl-redirect: "true"
+#          nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+#          cert-manager.io/cluster-issuer: cert-manager-webhook-duckdns-staging
+#      spec:
+#        tls:
+#          - hosts:
+#              - charizhard-keycloak.duckdns.org
+#            secretName: kc-tls-staging
+#        rules:
+#          - host: charizhard-keycloak.duckdns.org
+#            http:
+#              paths:
+#                - path: /
+#                  pathType: Prefix
+#                  backend:
+#                    service:
+#                      name: keycloak-service
+#                      port:
+#                        name: http
+#    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
-- name: Create Keycloak Ingress
+- name: Create Keycloak Ingress for production
   kubernetes.core.k8s:
     state: present
     definition:
       apiVersion: networking.k8s.io/v1
       kind: Ingress
       metadata:
-        name: keycloak-ingress
+        name: keycloak-ingress-prod
         namespace: keycloak
         annotations:
           kubernetes.io/ingress.class: nginx
           nginx.ingress.kubernetes.io/ssl-redirect: "true"
           nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
+          cert-manager.io/cluster-issuer: cert-manager-webhook-duckdns-production
       spec:
         tls:
           - hosts:
               - charizhard-keycloak.duckdns.org
-            secretName: example-tls-secret
+            secretName: kc-tls-production
         rules:
           - host: charizhard-keycloak.duckdns.org
             http:

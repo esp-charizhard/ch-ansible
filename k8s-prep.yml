@@ -9,8 +9,8 @@
   roles:
     - spawn-k8s
 
-- name: Prepare Master node (test / not high availability)
-  hosts: master_nodes
+- name: Prepare Bastion
+  hosts: kingslanding
   become: true
   become_method: ansible.builtin.sudo
   vars_files:
@@ -20,8 +20,27 @@
   roles:
     - spawn-control-panel
 
-- name: Prepare Worker Node (test / not high availability)
-  hosts: worker_nodes
+- name: Propagate join commands
+  hosts: all
+  become: true
+  become_method: ansible.builtin.sudo
+  vars_files:
+    - k8snodes.yml
+    - vault_become_pass.yml
+    - dockerhub-image-pull-secret.yml
+  tasks:
+    - name: Propagate control_plane_join_command to master nodes
+      set_fact:
+        control_plane_join_command: "{{ hostvars['kingslanding'].control_plane_join_command }}"
+      when: inventory_hostname in groups['master_nodes']
+
+    - name: Propagate worker_join_command to worker nodes
+      set_fact:
+        worker_join_command: "{{ hostvars['kingslanding'].worker_join_command }}"
+      when: inventory_hostname in groups['worker_nodes']
+
+- name: Prepare Worker Nodes  and other master nodes
+  hosts: k8snodes
   become: true
   become_method: ansible.builtin.sudo
   vars_files:
@@ -30,16 +49,3 @@
     - dockerhub-image-pull-secret.yml
   roles:
     - spawn-worker-node
-
-- name: Prepare Ota microservices
-  hosts: snowdin
-  become: true
-  become_method: ansible.builtin.sudo
-  vars_files:
-    - k8snodes.yml
-    - vault_become_pass.yml
-    - dockerhub-image-pull-secret.yml
-    - dockerhub-image-pull-secret-copy.yml
-    - dockerhub-image-pull-secret-copy-2.yml
-  roles:
-    - spawn-ota

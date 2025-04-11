@@ -1,0 +1,5 @@
+  - name: Tempo
+    type: tempo
+    uid: tempo_uid
+    access: proxy
+    url: http://tempo.monitoring.svc.cluster.local:3200

@@ -19,6 +19,17 @@ To launch this playbook, use this command :
 ```
 ansible-playbook k8s-prep.yml --vault-password-file vault_pass.txt
 ```
+### ota-launch.yml
+Playbook to deploy all microservices
+
+1 role :
+- **spawn-ota**: On the control-plane, to deploy the ota, minio object storage and keycloak
+
+To launch this playbook, use this command :
+
+```
+ansible-playbook ota-launch.yml --vault-password-file vault_pass.txt
+```
 
 ### clean.yml
 
@@ -47,12 +58,12 @@ ansible-playbook clean.yml --vault-password-file vault_pass.txt
     - [x] Set up worker node
     - [x] Set up small app
     - [x] Expose app
-    - [ ] Set up Ingress service
+    - [x] Set up Ingress service
     - [x] Get OTA microservice deployment
     - [ ] Set up Keycloak deployment
     - [x] Set up database for replicas pods
-- [ ] Change in HA architecture
-    - [ ] External etcd ?
-    - [ ] Increase master nodes to 3
-    - [ ] Increase worker nodes to 3
+- [x] Change in HA architecture
+    - [x] External etcd ?
+    - [x] Increase master nodes to 3
+    - [x] Increase worker nodes to 3
 - [ ] Set up Grafana/Prometheus

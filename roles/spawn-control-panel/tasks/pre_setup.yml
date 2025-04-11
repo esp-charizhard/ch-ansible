@@ -1,28 +1,4 @@
----
-# - name: Check if the cluster endpoint line is present
-#   ansible.builtin.command: grep -Fx "{{ cluster_endpoint }} cluster-endpoint" /etc/hosts
-#   register: grep_result
-#   ignore_errors: true
-# 
-# - name: Adding cluster endpoint
-#   ansible.builtin.lineinfile:
-#     path: /etc/hosts
-#     line:  "{{ cluster_endpoint }} cluster-endpoint"
-#     owner: root
-#     group: root
-#     mode: '0644'
-#     backup: true
-
-- name: Create /tmp/kubeadm directory
-  file:
-    path: /tmp/kubeadm
-    state: directory    
-
-- name: Copy kubeadm init config
-  template:
-    src: test_config.yml
-    dest: /tmp/kubeadm/kubeadm-config.yml
-  
+---  
 - name: create crictl config file
   template:
     src: crictl.yml
