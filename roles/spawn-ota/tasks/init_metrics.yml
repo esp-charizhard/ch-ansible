@@ -17,6 +17,12 @@
     state: present
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
+- name: Create ConfigMap for Grafana
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('template', 'dashboard-wireguard.yaml') }}"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
 - name: Create volume for prometheus/grafana
   kubernetes.core.k8s:
     state: present
@@ -170,6 +176,7 @@
         admin-user: "admin"
         admin-password: "admin"
 
+
 - name: Install Grafana
   kubernetes.core.helm:
     name: grafana
@@ -179,7 +186,7 @@
     create_namespace: false
     state: present
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-    values:
+    values: # look at https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml to the values to modif
       admin:
         existingSecret: grafana-admin-secret
         userKey: admin-user
@@ -207,6 +214,11 @@
               type: tempo
               url: http://tempo.monitoring.svc.cluster.local:3200
               access: proxy
+      extraConfigmapMounts:
+        - name: Wireguard configmap
+          mountPath: /etc/config/wireguard.json
+          configMap: dashboard-wireguard
+          readOnly: true
       resources:
         limits:
           cpu: 300m
@@ -246,8 +258,6 @@
                       name: grafana
                       port:
                         name: service
-      dashboardsConfigMaps:
-        - wireguard-dashboard
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 - name: Verify Prometheus installation
@@ -293,9 +303,3 @@
       - "Loki Pods: {{ loki_pods.resources | map(attribute='metadata.name') | list }}"
       - "Tempo Pods: {{ tempo_pods.resources | map(attribute='metadata.name') | list }}"
       - "Grafana Pods: {{ grafana_pods.resources | map(attribute='metadata.name') | list }}"
-
-- name: Deploy Wireguard Dashboard ConfigMap
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('file', '../../../dashboard-wireguard.yaml') | from_yaml}}"
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"

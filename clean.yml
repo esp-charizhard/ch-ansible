@@ -90,9 +90,9 @@
         
         - name: Master node specific cleanup
           block:
-            - name: Backup etcd (if needed)
-              shell: mkdir -p /tmp/etcd-backup && ETCDCTL_API=3 etcdctl snapshot save /tmp/etcd-backup/etcd-snapshot-$(date +%Y%m%d-%H%M%S).db --endpoints=localhost:2379
-              ignore_errors: true
+            #- name: Backup etcd (if needed)
+            #  shell: mkdir -p /tmp/etcd-backup && ETCDCTL_API=3 etcdctl snapshot save /tmp/etcd-backup/etcd-snapshot-$(date +%Y%m%d-%H%M%S).db --endpoints=localhost:2379
+            #  ignore_errors: true
             
             - name: Remove control plane static pod manifests
               file:

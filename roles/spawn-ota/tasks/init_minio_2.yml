@@ -44,7 +44,6 @@
         namespace: minio
         labels:
           app: minio-storage-claim
-
       spec:
         storageClassName: manual
         accessModes:
