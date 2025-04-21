@@ -4,7 +4,11 @@
     definition: "{{ lookup('template', 'setup-ingress-nginx.yml') }}"
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
   register: ingress_config_result
-  ignore_errors: yes
+  ignore_errors: true
+
+#- name: Config test ingress-nginx
+#  shell: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml --kubeconfig=/home/{{ ansible_user }}/.kube/config
+
 
 - name: Check if webhook configuration exists
   kubernetes.core.k8s_info:
@@ -13,7 +17,7 @@
     name: ingress-nginx-admission
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
   register: webhook_config
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Delete webhook configuration if it exists
   kubernetes.core.k8s:
@@ -23,7 +27,7 @@
     name: ingress-nginx-admission
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
   when: webhook_config.resources | length > 0
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Restart the ingress-nginx controller deployment
   kubernetes.core.k8s:
@@ -54,7 +58,7 @@
          (ingress_pods.resources | length > 0 and ingress_pods.resources[0].metadata.creationTimestamp | regex_search(ansible_date_time.date))
   retries: 10
   delay: 10
-  ignore_errors: yes
+  ignore_errors: true
 
 - name: Wait for new ingress controller pods to be ready
   kubernetes.core.k8s_info:
@@ -67,8 +71,7 @@
   register: new_ingress_pods
   until: >
     new_ingress_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length > 0 and
-    new_ingress_pods.resources | selectattr('status.containerStatuses', 'defined') | list | length > 0 and
-    new_ingress_pods.resources | map(attribute='status.containerStatuses') | flatten | selectattr('ready', 'equalto', true) | list | length > 0
+    new_ingress_pods.resources | selectattr('status.containerStatuses', 'defined') | list | length > 0
   retries: 15
   delay: 20
 

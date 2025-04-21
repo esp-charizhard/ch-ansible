@@ -1,0 +1,80 @@
+---
+- name: Add hashicorp-vault repo
+  kubernetes.core.helm_repository:
+    name: hashicorp
+    repo_url: "https://helm.releases.hashicorp.com"
+
+- name: Create volume for vault
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      kind: PersistentVolume
+      apiVersion: v1
+      metadata:
+        name: "vault-volume"
+        labels:
+          type: local
+      spec:
+        persistentVolumeReclaimPolicy: Retain
+        storageClassName: local-storage
+        capacity:
+          storage: 15Gi
+        accessModes:
+          - ReadWriteOnce
+        hostPath:
+          path: "/home/{{ ansible_user }}/data/vault-volume"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Create persistent volume claim for vault
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      kind: PersistentVolumeClaim
+      apiVersion: v1
+      metadata:
+        name: vault-storage
+        namespace: vault
+      spec:
+        storageClassName: local-storage
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 15Gi
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Install/upgrade hashicorp-vault via Helm
+  kubernetes.core.helm:
+    name: vault
+    chart_ref: vault
+    chart_repo_url: "https://helm.releases.hashicorp.com"
+    release_namespace: vault
+    create_namespace: true
+    state: present
+    values:
+      server:
+        dataStorage:
+          enabled: true
+          size: 15Gi
+          storageClass: local-storage
+          accessMode: ReadWriteOnce
+        
+        extraVolumes:
+          - type: persistentVolumeClaim
+            name: vault-storage
+            claimName: vault-storage
+            readOnly: false
+        
+        volumes:
+          - name: plugins
+            emptyDir: {}
+        
+        volumeMounts:
+          - mountPath: /vault/data
+            name: vault-storage
+          - mountPath: /usr/local/libexec/vault
+            name: plugins
+            readOnly: true
+        
+        extraArgs: "" 
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"

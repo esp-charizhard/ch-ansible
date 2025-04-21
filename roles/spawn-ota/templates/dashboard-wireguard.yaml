@@ -225,7 +225,6 @@ data:
         "multi": true,
         "sort": 1
       }
-      ]
     },
     "time": {
       "from": "now-6h",

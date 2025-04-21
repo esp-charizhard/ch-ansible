@@ -158,7 +158,21 @@
                 requests:
                   cpu: 500m
                   memory: 50Mi
+              env:
+              - name: DATABASE_URL
+                value: "{{ DATABASE_URL }}"
+              - name: POSTGRES_USER
+                value: "{{ POSTGRES_USER }}"
+              - name: POSTGRES_PASSWORD
+                value: "{{ POSTGRES_PASSWORD }}"
+              - name: POSTGRES_DB
+                value: "{{ POSTGRES_DB }}"
+              - name: EMAIL_LOGIN
+                value: "{{ EMAIL_LOGIN }}"
+              - name: EMAIL_PASSWORD
+                value: "{{ EMAIL_PASSWORD }}"
             restartPolicy: Always
+            
             volumes:
             - name: temp-certif
               emptyDir: {}
