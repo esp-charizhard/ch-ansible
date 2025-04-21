@@ -45,7 +45,6 @@
                 periodSeconds: 10
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
-
 - name: Create Kubernetes Service for funnyklown/ota
   kubernetes.core.k8s:
     state: present
@@ -65,50 +64,6 @@
           targetPort: 8081  
           name: http
         type: ClusterIP
-
-#- name: Create OTA Ingress
-#  kubernetes.core.k8s:
-#    state: present
-#    definition:
-#      apiVersion: networking.k8s.io/v1
-#      kind: Ingress
-#      metadata:
-#        name: ota-ingress
-#        namespace: default
-#        annotations:
-#          kubernetes.io/ingress.class: nginx
-#          nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
-#          cert-manager.io/cluster-issuer: cert-manager-webhook-duckdns-staging
-#          nginx.ingress.kubernetes.io/use-regex: "true"
-#      spec:
-#        ingressClassName: nginx
-#        tls:
-#          - hosts:
-#              - '*.charizhard.duckdns.org'
-#              - charizhard.duckdns.org
-#            secretName: ota-tls-staging
-#        rules:
-#          - host: '*.charizhard.duckdns.org'
-#            http:
-#              paths:
-#                - path: /
-#                  pathType: Prefix
-#                  backend:
-#                    service:
-#                      name: ota-service
-#                      port:
-#                        name: http
-#          - host: charizhard.duckdns.org
-#            http:
-#              paths:
-#                - path: /
-#                  pathType: Prefix
-#                  backend:
-#                    service:
-#                      name: ota-service
-#                      port:
-#                        name: http
-#    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 - name: Create OTA Ingress prod
   kubernetes.core.k8s:

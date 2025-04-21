@@ -16,25 +16,106 @@
 - name: Create minio volume
   kubernetes.core.k8s:
     state: present
-    definition: "{{ lookup('template', 'minio-volume.yml.j2') | from_yaml }}"
+    definition:
+      kind: PersistentVolume
+      apiVersion: v1
+      metadata:
+        name: minio-pv-volume
+        labels:
+          type: local
+      spec:
+        storageClassName: manual
+        capacity:
+          storage: 15Gi
+        accessModes:
+          - ReadWriteOnce
+        hostPath:
+          path: "/home/{{ ansible_user }}"
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 - name: Create minio persistent volume claim
   kubernetes.core.k8s:
     state: present
-    definition: "{{ lookup('template', 'minio-pvc.yml.j2') | from_yaml }}"
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: minio-pv-claim
+        namespace: minio
+        labels:
+          app: minio-storage-claim
+
+      spec:
+        storageClassName: manual
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 10Gi
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 - name: Create minio deployment
   kubernetes.core.k8s:
     state: present
-    definition: "{{ lookup('template', 'minio-deployment.yml.j2') | from_yaml }}"
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: minio-deployment
+        namespace: minio
+      spec:
+        selector:
+          matchLabels:
+            app: minio
+        strategy:
+          type: Recreate
+        template:
+          metadata:
+            labels:
+              app: minio
+          spec:
+            imagePullSecrets:
+              - name: dockerhub-image-pull-secret
+            volumes:
+            - name: storage
+              persistentVolumeClaim:
+                claimName: minio-pv-claim
+            containers:
+            - name: minio
+              image: minio/minio:latest
+              args:
+              - server
+              - /storage
+              env:
+              - name: MINIO_ROOT_USER
+                value: "{{ minio_root_user }}"
+              - name: MINIO_ROOT_PASSWORD
+                value: "{{ minio_root_password }}"
+              ports:
+              - containerPort: 9000
+                hostPort: 9000
+              volumeMounts:
+              - name: storage
+                mountPath: "/home/{{ ansible_user }}"
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 - name: Create minio service
   kubernetes.core.k8s:
     state: present
-    definition: "{{ lookup('template', 'minio-service.yml.j2') | from_yaml }}"
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: minio-service
+        namespace: minio
+      spec:
+        type: ClusterIP
+        ports:
+          - port: 9000
+            targetPort: 9000
+            protocol: TCP
+        selector:
+          app: minio
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 - name: Wait for minio pods to be ready

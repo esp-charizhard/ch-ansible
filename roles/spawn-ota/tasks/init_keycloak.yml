@@ -7,16 +7,77 @@
     state: present
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
-- name: Create postgres for keycloak
+- name: Create postgres statefulset for keycloak
   kubernetes.core.k8s:
     state: present
-    definition: "{{ lookup('template', 'example-postgres.yml') }}"
+    definition: 
+      apiVersion: apps/v1
+      kind: StatefulSet
+      metadata:
+        name: postgresql-db
+        namespace: keycloak
+      spec:
+        serviceName: postgresql-db-service
+        selector:
+          matchLabels:
+            app: postgresql-db
+        replicas: 1
+        template:
+          metadata:
+            labels:
+              app: postgresql-db
+          spec:
+            containers:
+              - name: postgresql-db
+                image: postgres:15
+                volumeMounts:
+                  - mountPath: /data
+                    name: cache-volume
+                env:
+                  - name: POSTGRES_USER
+                    value: root #to modif test env
+                  - name: POSTGRES_PASSWORD
+                    value: cacaboudin # to modif test env
+                  - name: PGDATA
+                    value: /data/pgdata
+                  - name: POSTGRES_DB
+                    value: keycloak
+            volumes:
+              - name: cache-volume
+                emptyDir: {}
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Create Postgres service for Keycloak
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: postgres-db
+        namespace: keycloak
+      spec:
+        selector:
+          app: postgresql-db
+        type: LoadBalancer
+        ports:
+        - port: 5432
+          targetPort: 5432
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 - name: Create database secret
   kubernetes.core.k8s:
     state: present
-    definition: "{{ lookup('template', 'keycloak-db-secret.yml') }}"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: keycloak-db-secret
+        namespace: keycloak
+      type: Opaque
+      data:
+        username: cm9vdA==
+        password: Y2FjYWJvdWRpbg==
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 - name: Create Keycloak ConfigMap for realms
@@ -108,39 +169,6 @@
             targetPort: 8443
         type: ClusterIP
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-
-
-#- name: Create Keycloak Ingress staging
-#  kubernetes.core.k8s:
-#    state: present
-#    definition:
-#      apiVersion: networking.k8s.io/v1
-#      kind: Ingress
-#      metadata:
-#        name: keycloak-ingress
-#        namespace: keycloak
-#        annotations:
-#          kubernetes.io/ingress.class: nginx
-#          nginx.ingress.kubernetes.io/ssl-redirect: "true"
-#          nginx.ingress.kubernetes.io/proxy-buffer-size: "128k"
-#          cert-manager.io/cluster-issuer: cert-manager-webhook-duckdns-staging
-#      spec:
-#        tls:
-#          - hosts:
-#              - charizhard-keycloak.duckdns.org
-#            secretName: kc-tls-staging
-#        rules:
-#          - host: charizhard-keycloak.duckdns.org
-#            http:
-#              paths:
-#                - path: /
-#                  pathType: Prefix
-#                  backend:
-#                    service:
-#                      name: keycloak-service
-#                      port:
-#                        name: http
-#    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 - name: Create Keycloak Ingress for production
   kubernetes.core.k8s:

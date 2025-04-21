@@ -1,85 +1,77 @@
-- name: Apply ingress-nginx (ta mere)
-  shell: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/baremetal/deploy.yaml --kubeconfig=/home/{{ ansible_user }}/.kube/config
-  failed_when: false
-
-- name: Patch ingress-nginx service to LoadBalancer
+- name: Config ingress-nginx
   kubernetes.core.k8s:
-    api_version: v1
-    kind: Service
-    name: ingress-nginx-controller
-    namespace: ingress-nginx
+    state: present
+    definition: "{{ lookup('template', 'setup-ingress-nginx.yml') }}"
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-    resource_definition:
-      apiVersion: v1
-      kind: Service
+  register: ingress_config_result
+  ignore_errors: yes
+
+- name: Check if webhook configuration exists
+  kubernetes.core.k8s_info:
+    api_version: admissionregistration.k8s.io/v1
+    kind: ValidatingWebhookConfiguration
+    name: ingress-nginx-admission
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  register: webhook_config
+  ignore_errors: yes
+
+- name: Delete webhook configuration if it exists
+  kubernetes.core.k8s:
+    state: absent
+    api_version: admissionregistration.k8s.io/v1
+    kind: ValidatingWebhookConfiguration
+    name: ingress-nginx-admission
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  when: webhook_config.resources | length > 0
+  ignore_errors: yes
+
+- name: Restart the ingress-nginx controller deployment
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
       metadata:
         name: ingress-nginx-controller
         namespace: ingress-nginx
       spec:
-        type: LoadBalancer
-
-- name: Traffic for UDP setup
-  kubernetes.core.k8s:
-    api_version: v1
-    kind: ConfigMap
-    name: udp-services
-    namespace: ingress-nginx
-    state: present
-    resource_definition:
-      metadata:
-        name: udp-services
-        namespace: ingress-nginx
-      data:
-        "51820": "default/charizhard-server-service:51820"
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-
-- name: Increase ingress-nginx controller verbosity
-  kubernetes.core.k8s:
-    api_version: apps/v1
-    kind: Deployment
-    name: ingress-nginx-controller
-    namespace: ingress-nginx
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-    merge_type: strategic-merge
-    definition:
-      spec:
         template:
-          spec:
-            containers:
-            - name: controller
-              args:
-              - /nginx-ingress-controller
-              - --election-id=ingress-nginx-leader
-              - --controller-class=k8s.io/ingress-nginx
-              - --ingress-class=nginx
-              - --configmap=$(POD_NAMESPACE)/ingress-nginx-controller
-              - --validating-webhook=:8443
-              - --validating-webhook-certificate=/usr/local/certificates/cert
-              - --validating-webhook-key=/usr/local/certificates/key
-              - --udp-services-configmap=ingress-nginx/udp-services
-              - --enable-ssl-passthrough
-              - --v=4  # Increased verbosity level
-              env:
-              - name: POD_NAME
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.name
-              - name: POD_NAMESPACE
-                valueFrom:
-                  fieldRef:
-                    fieldPath: metadata.namespace
-              - name: ERROR_LOG_LEVEL
-                value: "debug"  # Set Nginx error log level to debug
-
-
-- name: Wait for ingress controller to be ready
-  kubernetes.core.k8s_info:
-    api_version: apps/v1
-    kind: Deployment
-    name: ingress-nginx-controller
-    namespace: ingress-nginx
+          metadata:
+            annotations:
+              kubectl.kubernetes.io/restartedAt: "{{ ansible_date_time.iso8601 }}"
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-  register: ingress_deployment
-  until: ingress_deployment.resources[0].status.readyReplicas is defined and ingress_deployment.resources[0].status.readyReplicas > 0
+
+- name: Wait for ingress controller pods to be terminated
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: ingress-nginx
+    label_selectors:
+      - app.kubernetes.io/component=controller
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  register: ingress_pods
+  until: ingress_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length == 0 or 
+         (ingress_pods.resources | length > 0 and ingress_pods.resources[0].metadata.creationTimestamp | regex_search(ansible_date_time.date))
   retries: 10
-  delay: 30
+  delay: 10
+  ignore_errors: yes
+
+- name: Wait for new ingress controller pods to be ready
+  kubernetes.core.k8s_info:
+    api_version: v1
+    kind: Pod
+    namespace: ingress-nginx
+    label_selectors:
+      - app.kubernetes.io/component=controller
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  register: new_ingress_pods
+  until: >
+    new_ingress_pods.resources | selectattr('status.phase', 'equalto', 'Running') | list | length > 0 and
+    new_ingress_pods.resources | selectattr('status.containerStatuses', 'defined') | list | length > 0 and
+    new_ingress_pods.resources | map(attribute='status.containerStatuses') | flatten | selectattr('ready', 'equalto', true) | list | length > 0
+  retries: 15
+  delay: 20
+
+- name: Wait additional time for webhook to initialize
+  ansible.builtin.pause:
+    seconds: 60
