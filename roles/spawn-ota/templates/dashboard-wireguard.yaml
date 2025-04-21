@@ -214,7 +214,17 @@ data:
     "style": "dark",
     "tags": ["wireguard", "vpn", "monitoring"],
     "templating": {
-      "list": []
+      "list": [
+      {
+        "name": "interface",
+        "type": "query",
+        "datasource": "prometheus",
+        "query": "label_values(wireguard_sent_bytes_total, interface)",
+        "refresh": 1,
+        "includeAll": true,
+        "multi": true,
+        "sort": 1
+      }
     },
     "time": {
       "from": "now-6h",
