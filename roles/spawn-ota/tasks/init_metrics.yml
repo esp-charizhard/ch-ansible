@@ -8,7 +8,6 @@
     - { name: prometheus-community, url: "https://prometheus-community.github.io/helm-charts" }
     - { name: jetstack, url: "https://charts.jetstack.io" }
 
-
 - name: Create monitoring namespace
   kubernetes.core.k8s:
     name: "monitoring"
@@ -20,7 +19,7 @@
 - name: Create ConfigMap for Grafana
   kubernetes.core.k8s:
     state: present
-    definition: "{{ lookup('template', 'dashboard-wireguard.yaml') }}"
+    definition: "{{ lookup('file', 'dashboard-wireguard.yaml') }}"
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 - name: Create volume for prometheus/grafana
@@ -215,9 +214,9 @@
               url: http://tempo.monitoring.svc.cluster.local:3200
               access: proxy
       extraConfigmapMounts:
-        - name: Wireguard configmap
+        - name: wireguard-configmap
           mountPath: /etc/config/wireguard.json
-          configMap: dashboard-wireguard
+          configMap: wireguard-dashboard
           readOnly: true
       resources:
         limits:

@@ -1,4 +1,110 @@
 ---
+# Setting up stuff for database
+- name: Create PVC for postgres otp
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "/home/{{ansible_user}}/.kube/config"
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: postgres-pvc
+        namespace: default
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+
+- name: Create ConfigMap for postgres otp
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "/home/{{ansible_user}}/.kube/config"
+    definition:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: postgres-init-script
+        namespace: default
+      data:
+        init.sql: |
+          -- Contents of init.sql should be placed here
+          -- For example:
+          CREATE TABLE IF NOT EXISTS users (
+            id SERIAL PRIMARY KEY,
+            username VARCHAR(50) NOT NULL,
+            email VARCHAR(100) NOT NULL
+          );
+
+- name: Create Deployment for postgres otp
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "/home/{{ansible_user}}/.kube/config"
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: postgres
+        namespace: default
+        labels:
+          app: postgres
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: postgres
+        template:
+          metadata:
+            labels:
+              app: postgres
+          spec:
+            containers:
+            - name: postgres
+              image: postgres:15
+              ports:
+              - containerPort: 5432
+              env:
+              - name: POSTGRES_USER
+                value: "{{POSTGRES_USER}}"
+              - name: POSTGRES_PASSWORD
+                value: "{{POSTGRES_PASSWORD}}"
+              - name: POSTGRES_DB
+                value: "{{POSTGRES_DB}}"
+              volumeMounts:
+              - name: postgres-data
+                mountPath: /var/lib/postgresql/data
+              - name: init-script
+                mountPath: /docker-entrypoint-initdb.d
+            volumes:
+            - name: postgres-data
+              persistentVolumeClaim:
+                claimName: postgres-pvc
+            - name: init-script
+              configMap:
+                name: postgres-init-script
+
+- name: Create Service for postgres otp
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "/home/{{ansible_user}}/.kube/config"
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: postgres-svc
+        namespace: default
+      spec:
+        selector:
+          app: postgres
+        ports:
+        - protocol: TCP
+          port: 5432
+          targetPort: 5432
+        type: ClusterIP
+
+# Setting up otp microservice
+
 - name: Create Secret for charizhard-otp configuration files
   kubernetes.core.k8s:
     state: present
@@ -116,84 +222,40 @@
             labels:
               app: charizhard-otp
           spec:
-            initContainers:
-            - name: init-otp-config
-              image: busybox
-              command: ['sh', '-c', 'cp /mnt/secret/otp.json /mnt/config/ && cp /mnt/example-json/example_json_config.json /mnt/config/']
-              volumeMounts:
-              - name: otp-secret
-                mountPath: /mnt/secret
-              - name: otp-config
-                mountPath: /mnt/config
-              - name: example-json-config
-                mountPath: /mnt/example-json
             containers:
-            - name: charizhard-otp
-              image: asthafinito/charizhard-otp
-              imagePullPolicy: Always
-              ports:
-              - containerPort: 8443
-              volumeMounts:
-              - mountPath: /app/temp_certif
-                name: temp-certif
-              - mountPath: /app/temp_certif/ca.crt
-                name: certificates
-                subPath: ca.crt
-              - mountPath: /app/temp_certif/certif_charizhard.crt
-                name: certificates
-                subPath: certif_charizhard.crt
-              - mountPath: /app/temp_certif/key_charizhard.key
-                name: certificates
-                subPath: key_charizhard.key
-              - mountPath: /app/example_json_config.json
-                name: otp-config
-                subPath: example_json_config.json
-              - mountPath: /app/otp.json
-                name: otp-config
-                subPath: otp.json
-              resources:
-                limits:
-                  cpu: 500m
-                  memory: 2Gi
-                requests:
-                  cpu: 500m
-                  memory: 50Mi
-              env:
-              - name: DATABASE_URL
-                value: "{{ DATABASE_URL }}"
-              - name: POSTGRES_USER
-                value: "{{ POSTGRES_USER }}"
-              - name: POSTGRES_PASSWORD
-                value: "{{ POSTGRES_PASSWORD }}"
-              - name: POSTGRES_DB
-                value: "{{ POSTGRES_DB }}"
-              - name: EMAIL_LOGIN
-                value: "{{ EMAIL_LOGIN }}"
-              - name: EMAIL_PASSWORD
-                value: "{{ EMAIL_PASSWORD }}"
+              - name: charizhard-otp
+                image: asthafinito/charizhard-otp
+                imagePullPolicy: Always
+                ports:
+                  - containerPort: 8443
+                volumeMounts:
+                  - mountPath: /app/temp_certif
+                    name: certificates
+                resources:
+                  limits:
+                    cpu: 500m
+                    memory: 2Gi
+                  requests:
+                    cpu: 500m
+                    memory: 50Mi
+                env:
+                  - name: DATABASE_URL
+                    value: "{{ DATABASE_URL }}"
+                  - name: POSTGRES_USER
+                    value: "{{ POSTGRES_USER }}"
+                  - name: POSTGRES_PASSWORD
+                    value: "{{ POSTGRES_PASSWORD }}"
+                  - name: POSTGRES_DB
+                    value: "{{ POSTGRES_DB }}"
+                  - name: EMAIL_LOGIN
+                    value: "{{ EMAIL_LOGIN }}"
+                  - name: EMAIL_PASSWORD
+                    value: "{{ EMAIL_PASSWORD }}"
             restartPolicy: Always
-            
             volumes:
-            - name: temp-certif
-              emptyDir: {}
-            - name: example-json-config
-              secret:
-                secretName: secret-otp
-                items:
-                - key: example_json_config.json
-                  path: example_json_config.json
-            - name: certificates
-              secret:
-                secretName: charizhard-certificates
-            - name: otp-secret
-              secret:
-                secretName: charizhard-config-secret
-                items:
-                - key: otp.json
-                  path: otp.json
-            - name: otp-config
-              emptyDir:
-                sizeLimit: 100Mi
+              - name: certificates
+                secret:
+                  secretName: charizhard-certificates
 
 - name: Create Service for charizhard-otp
   kubernetes.core.k8s:

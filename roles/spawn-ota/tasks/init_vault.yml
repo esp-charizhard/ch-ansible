@@ -4,6 +4,14 @@
     name: hashicorp
     repo_url: "https://helm.releases.hashicorp.com"
 
+- name: Create monitoring namespace
+  kubernetes.core.k8s:
+    name: "vault"
+    api_version: v1
+    kind: Namespace
+    state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
 - name: Create volume for vault
   kubernetes.core.k8s:
     state: present
@@ -49,7 +57,6 @@
     chart_ref: vault
     chart_repo_url: "https://helm.releases.hashicorp.com"
     release_namespace: vault
-    create_namespace: true
     state: present
     values:
       server:
