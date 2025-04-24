@@ -31,11 +31,31 @@
         init.sql: |
           -- Contents of init.sql should be placed here
           -- For example:
-          CREATE TABLE IF NOT EXISTS users (
-            id SERIAL PRIMARY KEY,
-            username VARCHAR(50) NOT NULL,
-            email VARCHAR(100) NOT NULL
+          CREATE
+              id TEXT PRIMARY KEY,
+              is_set TEXT,
+              mail TEXT NOT NULL,
+              valid_until TEXT
           );
+
+          CREATE TABLE wg_config (
+              id SERIAL PRIMARY KEY,              
+              fingerprint TEXT NOT NULL,   
+              address TEXT NOT NULL,              
+              allowedip TEXT NOT NULL,            
+              allowedmask TEXT NOT NULL,          
+              port TEXT NOT NULL,                  
+              privkey TEXT NOT NULL,               
+              pubkey TEXT NOT NULL                 
+          );
+
+
+          INSERT INTO users (id, is_set, mail) VALUES
+          ('123454321', NULL, 'gilles@entreprise.com'),
+          ('147258369', NULL, 'elodie@designhouse.io'),
+          ('159357258', NULL, 'paul@industry.com')
+          ON CONFLICT (id) DO NOTHING; 
+
 
 - name: Create Deployment for postgres otp
   kubernetes.core.k8s:
@@ -104,86 +124,6 @@
         type: ClusterIP
 
 # Setting up otp microservice
-
-- name: Create Secret for charizhard-otp configuration files
-  kubernetes.core.k8s:
-    state: present
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-    definition:
-      apiVersion: v1
-      kind: Secret
-      metadata:
-        name: charizhard-config-secret
-        namespace: default
-      data:
-        otp.json: "{{ otp_json_content | b64encode }}"
-  vars:
-    otp_json_content: |
-      {
-        "123454321": {
-          "is_set": 0,
-          "mail": "gilles@entreprise.com"
-        },
-        "147258369": {
-          "is_set": 0,
-          "mail": "elodie@designhouse.io"
-        },
-        "159357258": {
-          "is_set": 0,
-          "mail": "paul@industry.com"
-        },
-        "258147369": {
-          "is_set": 0,
-          "mail": "isabelle@fintech.biz"
-        },
-        "357159852": {
-          "is_set": 0,
-          "mail": "sophie@techworld.io"
-        },
-        "357258159": {
-          "is_set": 0,
-          "mail": "charlotte@marketing.biz"
-        },
-        "369258147": {
-          "is_set": 0,
-          "mail": "nicolas@engineering.net"
-        },
-        "456789123": {
-          "is_set": 0,
-          "mail": "jean@commerce.net"
-        },
-        "654852147": {
-          "is_set": 0,
-          "mail": "julie@consulting.fr"
-        },
-        "789123456": {
-          "is_set": 0,
-          "mail": "lucie@startup.org"
-        },
-        "852147369": {
-          "is_set": 0,
-          "mail": "bernard@entrepreneur.org"
-        },
-        "852456753": {
-          "is_set": 0,
-          "mail": "antoine@webservices.net"
-        },
-        "951753852": {
-          "is_set": 0,
-          "mail": "mathieu@innovation.com"
-        },
-        "987654321": {
-          "is_set": 0,
-          "mail": "marie@business.com"
-        }
-      }
-  
-- name: Create secret for asthafinito/charizhard-otp
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('template', 'secret-otp.yml') }}"
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-
 - name: Create Secret for certificates
   kubernetes.core.k8s:
     state: present
@@ -251,6 +191,8 @@
                     value: "{{ EMAIL_LOGIN }}"
                   - name: EMAIL_PASSWORD
                     value: "{{ EMAIL_PASSWORD }}"
+                  - name: ENDPOINT_WG
+                    value: "http://charizhard-server-service.default.svc.cluster.local:8081/add-peer"
             restartPolicy: Always
             volumes:
               - name: certificates

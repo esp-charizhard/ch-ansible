@@ -16,12 +16,6 @@
     state: present
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
-- name: Create ConfigMap for Grafana
-  kubernetes.core.k8s:
-    state: present
-    definition: "{{ lookup('file', 'dashboard-wireguard.yaml') }}"
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-
 - name: Create volume for prometheus/grafana
   kubernetes.core.k8s:
     state: present
@@ -161,6 +155,13 @@
           cpu: 100m
           memory: 256Mi
 
+# Begin pre-setup for grafana
+- name: Create ConfigMap for Grafana
+  kubernetes.core.k8s:
+    state: present
+    definition: "{{ lookup('file', 'dashboard-wireguard.yaml') }}"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
 - name: Create Grafana admin secret
   kubernetes.core.k8s:
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
@@ -175,6 +176,122 @@
         admin-user: "admin"
         admin-password: "admin"
 
+# Setting up stuff for database
+- name: Create PV for postgres-grafana
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      kind: PersistentVolume
+      apiVersion: v1
+      metadata:
+        name: postgres-grafana-pv
+        labels:
+          name: local
+      spec:
+        persistentVolumeReclaimPolicy: Retain
+        storageClassName: local-storage
+        capacity:
+          storage: 1Gi
+        accessModes:
+          - ReadWriteOnce
+        hostPath:
+          path: "/home/{{ ansible_user }}/data/postgres-grafana"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Create PVC for postgres grafana
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "/home/{{ansible_user}}/.kube/config"
+    definition:
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: postgres-grafana-pvc
+        namespace: monitoring
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 1Gi
+        selector:
+          matchLabels:
+            name: local
+        storageClassName: local-storage
+
+- name: Create Deployment for postgres grafana
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "/home/{{ansible_user}}/.kube/config"
+    definition:
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: postgres
+        namespace: monitoring
+        labels:
+          app: postgres
+      spec:
+        replicas: 1
+        selector:
+          matchLabels:
+            app: postgres
+        template:
+          metadata:
+            labels:
+              app: postgres
+          spec:
+            containers:
+            - name: postgres
+              image: postgres:15
+              ports:
+              - containerPort: 5432
+              env:
+              - name: POSTGRES_USER
+                value: "grafana"
+              - name: POSTGRES_PASSWORD
+                value: "{{ grafana_database_password }}"
+              - name: POSTGRES_DB
+                value: "grafana"
+              volumeMounts:
+              - name: postgres-data
+                mountPath: /var/lib/postgresql/data
+            volumes:
+            - name: postgres-data
+              persistentVolumeClaim:
+                claimName: postgres-grafana-pvc
+
+- name: Create Service for postgres grafana
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "/home/{{ansible_user}}/.kube/config"
+    definition:
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: postgres-grafana-svc
+        namespace: monitoring
+      spec:
+        selector:
+          app: postgres
+        ports:
+        - protocol: TCP
+          port: 5432
+          targetPort: 5432
+        type: ClusterIP
+
+- name: Create Grafana database secret
+  kubernetes.core.k8s:
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: grafana-db-credentials
+        namespace: monitoring
+      type: Opaque
+      stringData:
+        db-password: "{{ grafana_database_password }}"
 
 - name: Install Grafana
   kubernetes.core.helm:
@@ -185,11 +302,20 @@
     create_namespace: false
     state: present
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-    values: # look at https://github.com/grafana/helm-charts/blob/main/charts/grafana/values.yaml to the values to modif
+    values:
       admin:
         existingSecret: grafana-admin-secret
         userKey: admin-user
         passwordKey: admin-password
+      grafana.ini:
+        database:
+          type: postgres
+          host: "postgres-grafana-svc.monitoring.svc.cluster.local:5432" 
+          name: grafana
+          user: grafana
+          passwordSecret: grafana-db-credentials
+          passwordKey: db-password
+          ssl_mode: disable
       persistence:
         enabled: "true"
         storageClass: local-storage
@@ -218,13 +344,17 @@
           mountPath: /etc/config/wireguard.json
           configMap: wireguard-dashboard
           readOnly: true
+      securityContext:
+        runAsUser: 472
+        runAsGroup: 472
+        fsGroup: 472
       resources:
         limits:
-          cpu: 300m
-          memory: 512Mi
+          cpu: 500m
+          memory: 1Gi
         requests:
-          cpu: 100m
-          memory: 256Mi
+          cpu: 200m
+          memory: 512Mi
 
 - name: Create grafana Ingress
   kubernetes.core.k8s:
