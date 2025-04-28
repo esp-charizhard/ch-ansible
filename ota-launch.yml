@@ -9,5 +9,6 @@
     - dockerhub-image-pull-secret.yml
     - dockerhub-image-pull-secret-copy.yml
     - dockerhub-image-pull-secret-copy-2.yml
+    - roles/spawn-ota/vars/microservices.yml
   roles:
     - spawn-ota

@@ -6,10 +6,6 @@
   register: ingress_config_result
   ignore_errors: true
 
-#- name: Config test ingress-nginx
-#  shell: kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml --kubeconfig=/home/{{ ansible_user }}/.kube/config
-
-
 - name: Check if webhook configuration exists
   kubernetes.core.k8s_info:
     api_version: admissionregistration.k8s.io/v1

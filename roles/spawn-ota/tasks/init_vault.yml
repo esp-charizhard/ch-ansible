@@ -19,7 +19,7 @@
       kind: PersistentVolume
       apiVersion: v1
       metadata:
-        name: "vault-volume"
+        name: "caca-vault-volume"
         labels:
           type: local
       spec:
@@ -83,5 +83,5 @@
             name: plugins
             readOnly: true
         
-        extraArgs: "" 
+        extraArgs: "--dry-run" 
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"

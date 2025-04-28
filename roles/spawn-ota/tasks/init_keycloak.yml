@@ -92,6 +92,10 @@
       data:
         "charizhard-ota-realm.json": |-
           {{ lookup('file', 'kc-config/charizhard-ota-realm.json') | from_json | to_json }}
+        "master-realm.json": |-
+          {{ lookup('file', 'kc-config/master-realm.json') | from_json | to_json }}
+        "charizhard-ota-users-0.json": |-
+          {{ lookup('file', 'kc-config/charizhard-ota-users-0.json') | from_json | to_json }}
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 - name: Deploy Keycloak directly
@@ -106,6 +110,7 @@
         labels:
           app: keycloak
       spec:
+        serviceAccountName: keycloak-admin
         replicas: 1
         selector:
           matchLabels:
@@ -115,6 +120,7 @@
             labels:
               app: keycloak
           spec:
+            
             containers:
               - name: keycloak
                 image: quay.io/keycloak/keycloak:26.1.4

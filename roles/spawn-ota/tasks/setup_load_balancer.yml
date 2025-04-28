@@ -4,15 +4,9 @@
   shell: kubectl apply -f https://raw.githubusercontent.com/metallb/metallb/v0.13.10/config/manifests/metallb-native.yaml --kubeconfig=/home/{{ ansible_user }}/.kube/config
   register: metallb_install
 
-- name: Wait for MetalLB to be ready
-  kubernetes.core.k8s:
-    kind: Deployment
-    name: controller
-    namespace: metallb-system
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-  retries: 10
-  delay: 6
-  until: metallb_install.rc == 0
+- name: Wait additional time for webhook to initialize
+  ansible.builtin.pause:
+    seconds: 60
 
 - name: Set IP pool
   kubernetes.core.k8s:

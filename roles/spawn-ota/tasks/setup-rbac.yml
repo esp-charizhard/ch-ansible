@@ -1,0 +1,50 @@
+- name: Create RBAC Role for Microservices
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: Role
+      metadata:
+        name: "{{ item.name }}-admin-role"
+        namespace: "{{ item.namespace }}"
+      rules: "{{ item.rules }}"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  loop: "{{ microservices }}"
+  loop_control:
+    label: "{{ item.namespace }}"
+
+- name: Create RBAC RoleBinding for Microservices
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: rbac.authorization.k8s.io/v1
+      kind: RoleBinding
+      metadata:
+        name: "{{ item.name }}-admin-rolebinding"
+        namespace: "{{ item.namespace }}"
+      subjects:
+        - kind: ServiceAccount
+          name: "{{ item.name }}-admin"
+          namespace: "{{ item.namespace }}"
+      roleRef:
+        kind: Role
+        name: "{{ item.name }}-admin-role"
+        apiGroup: rbac.authorization.k8s.io
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  loop: "{{ microservices }}"
+  loop_control:
+    label: "{{ item.namespace }}"
+
+- name: Create ServiceAccount for Microservices
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: "{{ item.name }}-admin"
+        namespace: "{{ item.namespace }}"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  loop: "{{ microservices }}"
+  loop_control:
+    label: "{{ item.namespace }}"

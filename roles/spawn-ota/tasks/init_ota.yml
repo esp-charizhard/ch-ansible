@@ -11,6 +11,7 @@
         labels:
           app: ota
       spec:
+        serviceAccountName: ota-admin
         replicas: 1
         selector:
           matchLabels:

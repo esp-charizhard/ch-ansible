@@ -1,0 +1,109 @@
+microservices:
+  - name: keycloak
+    namespace: keycloak
+    rules:
+      - apiGroups: [""]
+        resources: ["pods", "services", "secrets", "configmaps", "persistentvolumeclaims"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["apps"]
+        resources: ["deployments", "statefulsets"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["networking.k8s.io"]
+        resources: ["ingresses"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - name: ota
+    namespace: default
+    rules:
+      - apiGroups: [""]
+        resources: ["pods", "services", "secrets"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["apps"]
+        resources: ["deployments"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["networking.k8s.io"]
+        resources: ["ingresses"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - name: otp
+    namespace: default
+    rules:
+      - apiGroups: [""]
+        resources: ["pods", "services", "secrets"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["apps"]
+        resources: ["deployments"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["networking.k8s.io"]
+        resources: ["ingresses"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - name: postgres-otp
+    namespace: default
+    rules:
+      - apiGroups: [""]
+        resources: ["pods", "services", "configmaps", "persistentvolumeclaims"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["apps"]
+        resources: ["deployments"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - name: vault
+    namespace: vault
+    rules:
+      - apiGroups: [""]
+        resources: ["pods", "services", "secrets", "persistentvolumeclaims"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["apps"]
+        resources: ["deployments"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["vault.hashicorp.com"]
+        resources: ["vaults"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - name: prometheus
+    namespace: monitoring
+    rules:
+      - apiGroups: [""]
+        resources: ["pods", "services", "secrets", "configmaps", "persistentvolumeclaims"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["apps"]
+        resources: ["deployments"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["monitoring.coreos.com"]
+        resources: ["prometheuses", "servicemonitors", "podmonitors"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - name: loki
+    namespace: monitoring
+    rules:
+      - apiGroups: [""]
+        resources: ["pods", "services", "secrets", "configmaps", "persistentvolumeclaims"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["apps"]
+        resources: ["deployments"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - name: tempo
+    namespace: monitoring
+    rules:
+      - apiGroups: [""]
+        resources: ["pods", "services", "secrets", "configmaps", "persistentvolumeclaims"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["apps"]
+        resources: ["deployments"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - name: grafana
+    namespace: monitoring
+    rules:
+      - apiGroups: [""]
+        resources: ["pods", "services", "secrets", "configmaps", "persistentvolumeclaims"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["apps"]
+        resources: ["deployments"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["networking.k8s.io"]
+        resources: ["ingresses"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - name: postgres-grafana
+    namespace: monitoring
+    rules:
+      - apiGroups: [""]
+        resources: ["pods", "services", "secrets", "configmaps", "persistentvolumeclaims"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["apps"]
+        resources: ["deployments"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]

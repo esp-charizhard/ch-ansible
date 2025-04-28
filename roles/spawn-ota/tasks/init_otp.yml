@@ -79,6 +79,7 @@
             labels:
               app: postgres
           spec:
+            ServiceAccountName: postgres-otp-admin
             containers:
             - name: postgres
               image: postgres:15
@@ -153,6 +154,7 @@
         labels:
           app: charizhard-otp
       spec:
+        serviceAccountName: otp-admin
         replicas: 1
         selector:
           matchLabels:

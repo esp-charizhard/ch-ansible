@@ -10,3 +10,11 @@
   args:
     creates: /usr/local/bin/helm
 
+- name: Create all namespaces
+  kubernetes.core.k8s:
+    name: "{{ item.namespace }}"
+    api_version: v1
+    kind: Namespace
+    state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+  loop: "{{ microservices }}"

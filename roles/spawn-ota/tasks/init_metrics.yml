@@ -174,7 +174,7 @@
       type: Opaque
       stringData:
         admin-user: "admin"
-        admin-password: "admin"
+        admin-password: "cacaboudin" #to change
 
 # Setting up stuff for database
 - name: Create PV for postgres-grafana
