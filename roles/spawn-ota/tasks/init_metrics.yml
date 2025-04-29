@@ -73,7 +73,7 @@
 
 - name: Install Prometheus
   kubernetes.core.helm:
-    name:  prometheus
+    name: prometheus
     chart_ref: prometheus
     chart_repo_url: https://prometheus-community.github.io/helm-charts
     release_namespace: "monitoring"
@@ -104,6 +104,15 @@
             memory: 512Mi
       nodeExporter:
         enabled: true
+      extraScrapeConfigs: |
+        - job_name: 'prometheus-wg-exporter'
+          scrape_interval: 15s
+          scrape_timeout: 10s
+          metrics_path: /metrics
+          static_configs:
+            - targets:
+              - charizhard-server-service.default.svc.cluster.local:9586
+
 
 - name: Install Loki
   kubernetes.core.helm:
@@ -332,7 +341,7 @@
             - name: Prometheus
               uid: prometheus_uid
               type: prometheus
-              url: http://prometheus-server.monitoring.svc.cluster.local:80
+              url: http://prometheus-prometheus-node-exporter.monitoring.svc.cluster.local:9090
               access: proxy
             - name: Loki
               uid: loki_uid
@@ -344,7 +353,7 @@
               type: tempo
               url: http://tempo-grafana.monitoring.svc.cluster.local:80
               access: proxy
-      extraConfigmapMounts:
+      extraConfigmapMounts: #to remove, better way is to specify dashboardConfigMaps
         - name: wireguard-configmap
           mountPath: /etc/config/wireguard.json
           configMap: wireguard-dashboard

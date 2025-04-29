@@ -33,6 +33,8 @@
                 protocol: TCP
               - containerPort: 8081
                 protocol: TCP
+              - containerPort: 9586
+                protocol: TCP
               securityContext:
                 privileged: true
                 capabilities:
@@ -80,6 +82,10 @@
           port: 8081
           targetPort: 8081
           name: addpeer
+        - protocol: TCP
+          port: 9586
+          targetPort: 9586
+          name: metrics
         type: LoadBalancer
 
 - name: Create Endpoints for charizhard-server-service
@@ -105,6 +111,9 @@
         - port: 8081
           protocol: TCP
           name: addpeer
+        - port: 9586
+          protocol: TCP
+          name: metrics
 
 - name: Create charizhard-server Ingress
   kubernetes.core.k8s:
