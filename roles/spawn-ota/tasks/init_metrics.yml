@@ -317,6 +317,10 @@
           ssl_mode: disable
       # Adding this to disable the security check
       assertNoLeakedSecrets: false
+      dashboard:
+        default:
+          wireguard:
+            file: /etc/config/wireguard.json
       persistence:
         enabled: "true"
         storageClass: local-storage
@@ -328,17 +332,17 @@
             - name: Prometheus
               uid: prometheus_uid
               type: prometheus
-              url: http://prometheus-server.monitoring.svc.cluster.local
+              url: http://prometheus-server.monitoring.svc.cluster.local:80
               access: proxy
             - name: Loki
               uid: loki_uid
               type: loki
-              url: http://loki.monitoring.svc.cluster.local:3100
+              url: http://loki-grafana.monitoring.svc.cluster.local:80
               access: proxy
             - name: Tempo
               uid: tempo_uid
               type: tempo
-              url: http://tempo.monitoring.svc.cluster.local:3200
+              url: http://tempo-grafana.monitoring.svc.cluster.local:80
               access: proxy
       extraConfigmapMounts:
         - name: wireguard-configmap
