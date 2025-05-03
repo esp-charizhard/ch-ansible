@@ -39,6 +39,8 @@
   loop:
     - { name: "prometheus-pv-volume" }
     - { name: "grafana-pv-volume" }
+    - { name: "tempo-pv-volume"}
+    - { name: "loki-pv-volume"}
 
 - name: Create storage class
   kubernetes.core.k8s:
@@ -86,6 +88,10 @@
       pushgateway:
         enabled: false
       server:
+        service:
+          type: ClusterIP
+          port: 9090
+          targetPort: 9090  
         securityContext:
           runAsUser: 0
           runAsNonRoot: false
@@ -104,8 +110,8 @@
             memory: 512Mi
       nodeExporter:
         enabled: true
-      extraScrapeConfigs: |
-        - job_name: 'prometheus-wg-exporter'
+      extraScrapeConfigs: | # get the logs for the wireguard server
+        - job_name: 'prometheus-wg-exporter' 
           scrape_interval: 15s
           scrape_timeout: 10s
           metrics_path: /metrics
@@ -113,11 +119,59 @@
             - targets:
               - charizhard-server-service.default.svc.cluster.local:9586
 
-
+- name: Install Promtail
+  kubernetes.core.helm:
+    name: promtail
+    chart_ref: promtail
+    release_namespace: "monitoring"
+    chart_repo_url: https://grafana.github.io/helm-charts
+    create_namespace: false
+    state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    values:
+      config:
+        lokiAddress: "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
+        snippets:
+          extraScrapeConfigs: |
+              - job_name: kubernetes-pods-specific-endpoint
+                kubernetes_sd_configs:
+                - role: pod
+                relabel_configs:
+                # Only scrape pods in your target namespace - replace 'your-namespace' with actual namespace
+                - source_labels: [__meta_kubernetes_namespace]
+                  action: keep
+                  regex: default  # Replace with the namespace where your pods are running
+                # Only scrape pods with your specific label - replace labels as needed
+                - source_labels: [__meta_kubernetes_pod_label_app]
+                  action: keep
+                  regex: charizhard-server  # Replace with the label that identifies your app
+                # Set the specific log path you want to scrape
+                - source_labels: [__meta_kubernetes_pod_name]
+                  target_label: metrics
+                  replacement: /var/log/pods/*$1/*.log  # Adjust this path based on your specific endpoint
+                # Add metadata for filtering in Grafana
+                - source_labels: [__meta_kubernetes_pod_name]
+                  target_label: pod
+                - source_labels: [__meta_kubernetes_namespace]
+                  target_label: namespace
+      resources:
+        limits:
+          cpu: 200m
+          memory: 256Mi
+        requests:
+          cpu: 100m
+          memory: 128Mi
+      tolerations:
+        - effect: NoSchedule
+          operator: Exists
+      # To ensure Promtail runs on all nodes to collect logs
+      daemonset:
+        enabled: true
+  
 - name: Install Loki
   kubernetes.core.helm:
     name: loki
-    chart_ref: grafana
+    chart_ref: loki-stack
     release_namespace: "monitoring"
     chart_repo_url: https://grafana.github.io/helm-charts
     create_namespace: false
@@ -126,25 +180,41 @@
     values:
       loki:
         auth_enabled: false
-        storage:
-          type: pvc
-          pvc:
-            size: 10Gi
-      resources:
-        limits:
-          cpu: 300m
-          memory: 768Mi
-        requests:
-          cpu: 100m
-          memory: 256Mi
-      persistence:
-        storageClass: local-storage
-        size: 10Gi
+        service:
+          port: 3100
+          annotations:
+            prometheus.io/scrape: "true"
+            prometheus.io/port: "3100"
+        persistence:
+          enabled: true
+          size: 10Gi
+          storageClass: local-storage
+        securityContext:
+          fsGroup: 10001
+          runAsGroup: 10001
+          runAsUser: 10001
+        initContainers:
+        - name: init-chown-data
+          image: busybox:1.35
+          command: ["sh", "-c", "mkdir -p /data/loki && chown -R 10001:10001 /data"]
+          securityContext:
+            runAsNonRoot: false #to remove
+            runAsUser: 0
+          volumeMounts:
+          - name: storage
+            mountPath: /data
+        resources:
+          limits:
+            cpu: 300m
+            memory: 768Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
 
 - name: Install Tempo
   kubernetes.core.helm:
     name: tempo
-    chart_ref: grafana
+    chart_ref: tempo 
     chart_repo_url: https://grafana.github.io/helm-charts
     release_namespace: "monitoring"
     create_namespace: false
@@ -153,16 +223,26 @@
     values:
       tempo:
         search_enabled: true
-      storage:
-        pvc:
-          size: 10Gi
-      resources:
-        limits:
-          cpu: 300m
-          memory: 768Mi
-        requests:
-          cpu: 100m
-          memory: 256Mi
+        resources:
+          limits:
+            cpu: 300m
+            memory: 768Mi
+          requests:
+            cpu: 100m
+            memory: 256Mi
+      securityContext:
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      persistence:
+        enabled: true
+        storageClassName: local-storage
+        size: 10Gi
+#      ingester:
+#        persistence:
+#          enabled: true
+#          storageClass: local-storage
+#          size: 10Gi
 
 # Begin pre-setup for grafana
 - name: Create ConfigMap for Grafana
@@ -324,7 +404,7 @@
           user: grafana
           password: "{{ grafana_database_password }}" 
           ssl_mode: disable
-      # Adding this to disable the security check
+      # Adding this to disable the security
       assertNoLeakedSecrets: false
       dashboard:
         default:
@@ -334,6 +414,8 @@
         enabled: "true"
         storageClass: local-storage
         size: 5Gi
+      initChownData: #if not present, the init pod blocks because it doesn't have enough permissions
+        enabled: false
       datasources:
         datasources.yaml:
           apiVersion: 1
@@ -341,17 +423,17 @@
             - name: Prometheus
               uid: prometheus_uid
               type: prometheus
-              url: http://prometheus-prometheus-node-exporter.monitoring.svc.cluster.local:9090
+              url: http://prometheus-server.monitoring.svc.cluster.local:80
               access: proxy
             - name: Loki
               uid: loki_uid
               type: loki
-              url: http://loki-grafana.monitoring.svc.cluster.local:80
+              url: http://loki.monitoring.svc.cluster.local:3100
               access: proxy
             - name: Tempo
               uid: tempo_uid
               type: tempo
-              url: http://tempo-grafana.monitoring.svc.cluster.local:80
+              url: http://tempo.monitoring.svc.cluster.local:16686
               access: proxy
       extraConfigmapMounts: #to remove, better way is to specify dashboardConfigMaps
         - name: wireguard-configmap

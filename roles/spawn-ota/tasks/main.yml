@@ -23,14 +23,14 @@
 #- name: Include task to create ota pod
 #  ansible.builtin.include_tasks: init_ota.yml
 #
-- name: Include task to create charizhard-server
-  ansible.builtin.include_tasks: init_charizhard_server.yml
+#- name: Include task to create charizhard-server
+#  ansible.builtin.include_tasks: init_charizhard_server.yml
 #
-- name: Include task to create charizhard-otp
-  ansible.builtin.include_tasks: init_otp.yml
+#- name: Include task to create charizhard-otp
+#  ansible.builtin.include_tasks: init_otp.yml
 #
 - name: Include task to create metrics
   ansible.builtin.include_tasks: init_metrics.yml
 
-- name: Include task to create hashicorp-vault
-  ansible.builtin.include_tasks: init_vault.yml
+#- name: Include task to create hashicorp-vault
+#  ansible.builtin.include_tasks: init_vault.yml

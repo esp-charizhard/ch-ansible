@@ -77,9 +77,6 @@
             emptyDir: {}
         
         volumeMounts:
-          - mountPath: /vault/data
-            name: vault-storage
-          - mountPath: /usr/local/libexec/vault
             name: plugins
             readOnly: true
         
