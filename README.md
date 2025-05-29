@@ -8,7 +8,7 @@ Playbook to bootstrap k8s cluster
 
 4 roles :
 -  **spawn-k8s**: On every node of the cluster, to install dependencies, set network rules, install cri (containerd)...
-- **spawn-control-panel**: Only the master nodes (for now it's just a control-plane), use of kubeadm and set cni (calico)
+- **spawn-control-panel**: Only the master nodes, use of kubeadm and set cni (calico)
 - **spawn-worker-node**: Only on the worker nodes, to perform the kubeadm join
 - **spawn-ota**: On the control-plane, to deploy the ota, minio object storage and keycloak
 
@@ -52,7 +52,7 @@ ansible-playbook clean.yml --vault-password-file vault_pass.txt
 
 ## Roadmap
 
-- [ ] Test architecture (1 master / 1 worker)
+- [x] Test architecture (1 master / 1 worker)
     - [x] Install all dependencies on nodes
     - [x] Set up control plane
     - [x] Set up worker node
@@ -60,10 +60,12 @@ ansible-playbook clean.yml --vault-password-file vault_pass.txt
     - [x] Expose app
     - [x] Set up Ingress service
     - [x] Get OTA microservice deployment
-    - [ ] Set up Keycloak deployment
+    - [x] Set up Keycloak deployment
     - [x] Set up database for replicas pods
 - [x] Change in HA architecture
     - [x] External etcd ?
     - [x] Increase master nodes to 3
     - [x] Increase worker nodes to 3
-- [ ] Set up Grafana/Prometheus
+- [x] Set up Grafana/Prometheus
+- [x] Wireguard server + admin panel
+- [x] OTP microservice

@@ -93,9 +93,10 @@
           port: 9090
           targetPort: 9090  
         securityContext:
-          runAsUser: 1000
-          runAsGroup: 1000
-          fsGroup: 1000
+          runAsNonRoot: false
+          runAsUser: 0
+          runAsGroup: 0
+          fsGroup: 0
         persistentVolume:
           enabled: true
           storageClass: local-storage

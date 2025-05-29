@@ -53,7 +53,22 @@
             storage: 10Gi
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
-- name: Create minio deployment
+- name: Create Kubernetes Secret for MinIO credentials
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: minio-credentials
+        namespace: minio
+      type: Opaque
+      data:
+        minio_root_user: "{{ minio_root_user | b64encode }}"
+        minio_root_password: "{{ minio_root_password | b64encode }}"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Create MinIO Deployment
   kubernetes.core.k8s:
     state: present
     definition:
@@ -85,9 +100,15 @@
               - /storage
               env:
               - name: MINIO_ROOT_USER
-                value: "{{ minio_root_user }}"
+                valueFrom:
+                  secretKeyRef:
+                    name: minio-credentials
+                    key: minio_root_user
               - name: MINIO_ROOT_PASSWORD
-                value: "{{ minio_root_password }}"
+                valueFrom:
+                  secretKeyRef:
+                    name: minio-credentials
+                    key: minio_root_password
               ports:
               - containerPort: 9000
                 hostPort: 9000

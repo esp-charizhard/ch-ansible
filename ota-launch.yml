@@ -1,4 +1,20 @@
 ---
+
+- name: Update packages
+  hosts: k8snodes
+  become: true
+  become_method: ansible.builtin.sudo
+  vars_files:
+    - k8snodes.yml
+    - vault_become_pass.yml
+  tasks:
+    - name: Update all packages to their latest version
+      ansible.builtin.apt:
+        name: "*"
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
 - name: Prepare microservices
   hosts: kingslanding
   become: true

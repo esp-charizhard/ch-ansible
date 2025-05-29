@@ -1,4 +1,19 @@
 ---
+- name: Create Kubernetes Secret for MinIO credentials
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: minio-credentials
+        namespace: default
+      type: Opaque
+      data:
+        minio_access_key: "{{ minio_access_key | b64encode }}"
+        minio_secret_key: "{{ minio_secret_key | b64encode }}"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
 - name: Create Kubernetes Deployment for funnyklown/ota
   kubernetes.core.k8s:
     state: present
@@ -7,7 +22,7 @@
       kind: Deployment
       metadata:
         name: ota-deployment
-        namespace: default  
+        namespace: default
         labels:
           app: ota
       spec:
@@ -29,9 +44,15 @@
               - containerPort: 8081
               env:
               - name: MINIO_ACCESS_KEY
-                value: "{{ minio_access_key }}"
+                valueFrom:
+                  secretKeyRef:
+                    name: minio-credentials
+                    key: minio_access_key
               - name: MINIO_SECRET_KEY
-                value: "{{ minio_secret_key }}"
+                valueFrom:
+                  secretKeyRef:
+                    name: minio-credentials
+                    key: minio_secret_key
               readinessProbe:
                 httpGet:
                   path: /
