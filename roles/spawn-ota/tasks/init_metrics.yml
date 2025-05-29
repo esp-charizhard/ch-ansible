@@ -209,13 +209,12 @@
       kind: Secret
       metadata:
         name: grafana-admin-secret
-        namespace: "monitoring"
+        namespace: monitoring
       type: Opaque
       stringData:
-        admin-user: "admin"
-        admin-password: "cacaboudin" #to change
+        admin-user: admin
+        admin-password: "{{ grafana_admin_password }}"
 
-# Setting up stuff for database
 - name: Create PV for postgres-grafana
   kubernetes.core.k8s:
     state: present
