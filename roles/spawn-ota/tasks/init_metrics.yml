@@ -93,10 +93,9 @@
           port: 9090
           targetPort: 9090  
         securityContext:
-          runAsUser: 0
-          runAsNonRoot: false
-          runAsGroup: 0
-          fsGroup: 0
+          runAsUser: 1000
+          runAsGroup: 1000
+          fsGroup: 1000
         persistentVolume:
           enabled: true
           storageClass: local-storage
@@ -119,55 +118,6 @@
             - targets:
               - charizhard-server-service.default.svc.cluster.local:9586
 
-- name: Install Promtail
-  kubernetes.core.helm:
-    name: promtail
-    chart_ref: promtail
-    release_namespace: "monitoring"
-    chart_repo_url: https://grafana.github.io/helm-charts
-    create_namespace: false
-    state: present
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-    values:
-      config:
-        lokiAddress: "http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push"
-        snippets:
-          extraScrapeConfigs: |
-              - job_name: kubernetes-pods-specific-endpoint
-                kubernetes_sd_configs:
-                - role: pod
-                relabel_configs:
-                # Only scrape pods in your target namespace - replace 'your-namespace' with actual namespace
-                - source_labels: [__meta_kubernetes_namespace]
-                  action: keep
-                  regex: default  # Replace with the namespace where your pods are running
-                # Only scrape pods with your specific label - replace labels as needed
-                - source_labels: [__meta_kubernetes_pod_label_app]
-                  action: keep
-                  regex: charizhard-server  # Replace with the label that identifies your app
-                # Set the specific log path you want to scrape
-                - source_labels: [__meta_kubernetes_pod_name]
-                  target_label: metrics
-                  replacement: /var/log/pods/*$1/*.log  # Adjust this path based on your specific endpoint
-                # Add metadata for filtering in Grafana
-                - source_labels: [__meta_kubernetes_pod_name]
-                  target_label: pod
-                - source_labels: [__meta_kubernetes_namespace]
-                  target_label: namespace
-      resources:
-        limits:
-          cpu: 200m
-          memory: 256Mi
-        requests:
-          cpu: 100m
-          memory: 128Mi
-      tolerations:
-        - effect: NoSchedule
-          operator: Exists
-      # To ensure Promtail runs on all nodes to collect logs
-      daemonset:
-        enabled: true
-  
 - name: Install Loki
   kubernetes.core.helm:
     name: loki
@@ -178,6 +128,11 @@
     state: present
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
     values:
+      promtail:
+        enabled: true
+        config:
+          clients:
+            - url: http://loki.monitoring.svc.cluster.local:3100/loki/api/v1/push
       loki:
         auth_enabled: false
         service:
@@ -238,11 +193,6 @@
         enabled: true
         storageClassName: local-storage
         size: 10Gi
-#      ingester:
-#        persistence:
-#          enabled: true
-#          storageClass: local-storage
-#          size: 10Gi
 
 # Begin pre-setup for grafana
 - name: Create ConfigMap for Grafana
@@ -433,7 +383,7 @@
             - name: Tempo
               uid: tempo_uid
               type: tempo
-              url: http://tempo.monitoring.svc.cluster.local:16686
+              url: http://tempo.monitoring.svc.cluster.local:3100
               access: proxy
       extraConfigmapMounts: #to remove, better way is to specify dashboardConfigMaps
         - name: wireguard-configmap
@@ -484,47 +434,3 @@
                       port:
                         name: service
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-
-- name: Verify Prometheus installation
-  kubernetes.core.k8s_info:
-    kind: Pod
-    namespace: monitoring
-    label_selectors:
-      - app=prometheus
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-  register: prometheus_pods
-
-- name: Verify Loki installation
-  kubernetes.core.k8s_info:
-    kind: Pod
-    namespace: monitoring
-    label_selectors:
-      - app=loki
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-  register: loki_pods
-
-- name: Verify Tempo installation
-  kubernetes.core.k8s_info:
-    kind: Pod
-    namespace: monitoring
-    label_selectors:
-      - app=tempo
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-  register: tempo_pods
-
-- name: Verify Grafana installation
-  kubernetes.core.k8s_info:
-    kind: Pod
-    namespace: monitoring
-    label_selectors:
-      - app=grafana
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-  register: grafana_pods
-
-- name: Print installation status
-  debug:
-    msg:
-      - "Prometheus Pods: {{ prometheus_pods.resources | map(attribute='metadata.name') | list }}"
-      - "Loki Pods: {{ loki_pods.resources | map(attribute='metadata.name') | list }}"
-      - "Tempo Pods: {{ tempo_pods.resources | map(attribute='metadata.name') | list }}"
-      - "Grafana Pods: {{ grafana_pods.resources | map(attribute='metadata.name') | list }}"

@@ -19,7 +19,7 @@
       kind: PersistentVolume
       apiVersion: v1
       metadata:
-        name: "caca-vault-volume"
+        name: "caca1-vault-volume"
         labels:
           type: local
       spec:
@@ -30,7 +30,7 @@
         accessModes:
           - ReadWriteOnce
         hostPath:
-          path: "/home/{{ ansible_user }}/data/vault-volume"
+          path: "/home/{{ ansible_user }}/data/vault1-volume"
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
 - name: Create persistent volume claim for vault
@@ -51,34 +51,129 @@
             storage: 15Gi
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
+# Set up ca and issuer for vault secrets
+- name: Create cert-manager ClusterIssuer for self-signed CA
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: cert-manager.io/v1
+      kind: ClusterIssuer
+      metadata:
+        name: selfsigned-ca-issuer
+        namespace: vault
+      spec:
+        ca: 
+          secretName: ca-key-pair
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Create CA Certificate
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: cert-manager.io/v1
+      kind: Certificate
+      metadata:
+        name: vault-ca
+        namespace: "vault"
+      spec:
+        isCA: true
+        commonName: Vault CA
+        secretName: "vault-ca-secret"
+        privateKey:
+          algorithm: RSA
+          size: 2048
+        issuerRef:
+          name: selfsigned-ca-issuer
+          kind: ClusterIssuer
+          group: cert-manager.io
+        duration: 8760h
+        renewBefore: 720h
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Create Issuer for Vault CA
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: cert-manager.io/v1
+      kind: Issuer
+      metadata:
+        name: vault-ca-issuer
+        namespace: "vault"
+      spec:
+        ca:
+          secretName: "vault-ca-secret"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
+- name: Create Vault Server Certificate
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: cert-manager.io/v1
+      kind: Certificate
+      metadata:
+        name: vault-server
+        namespace: "vault"
+      spec:
+        secretName: "vault-server-tls"
+        commonName: vault-secrets-operator.vault.svc.cluster.local
+        dnsNames:
+          - vault-secrets-operator.vault.svc.cluster.local
+          - vault-secrets-operator.vault.svc
+          - vault-secrets-operator-0.vault-secrets-operator-internal
+        ipAddresses:
+          - 192.168.188.131
+        privateKey:
+          algorithm: RSA
+          size: 2048
+        issuerRef:
+          name: vault-ca-issuer
+          kind: Issuer
+          group: cert-manager.io
+        duration: 2160h
+        renewBefore: 360h
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
 - name: Install/upgrade hashicorp-vault via Helm
   kubernetes.core.helm:
-    name: vault
+    name: vault-secrets-operator
     chart_ref: vault
     chart_repo_url: "https://helm.releases.hashicorp.com"
     release_namespace: vault
-    state: present
-    values:
-      server:
-        dataStorage:
-          enabled: true
-          size: 15Gi
-          storageClass: local-storage
-          accessMode: ReadWriteOnce
-        
-        extraVolumes:
-          - type: persistentVolumeClaim
-            name: vault-storage
-            claimName: vault-storage
-            readOnly: false
-        
-        volumes:
-          - name: plugins
-            emptyDir: {}
-        
-        volumeMounts:
-            name: plugins
-            readOnly: true
-        
-        extraArgs: "--dry-run" 
+    state: present  
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    values:
+      # values.yaml
+      controller:
+        replicas: 1
+        manager:
+          image:
+            repository: hashicorp/vault-secrets-operator
+            tag: 0.10.0
+            pullPolicy: IfNotPresent
+          logging:
+            level: info
+            timeEncoding: rfc3339
+            stacktraceLevel: panic
+          resources:
+            limits:
+              cpu: 500m
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
+
+      defaultVaultConnection:
+        enabled: true
+        address: "http://vault-secrets-operator.vault.svc.cluster.local:8200"  # Internal Vault service address
+        skipTLSVerify: true  # Since Vault is using HTTP (not recommended for production)
+
+      defaultAuthMethod:
+        enabled: true
+        method: kubernetes
+        mount: kubernetes
+        kubernetes:
+          role: vso-role  # Matches the Vault role created above
+          serviceAccount: vault-secrets-operator  # Service account for VSO
+          tokenAudiences: []  # Optional, set if specific audiences are required
+        allowedNamespaces:
+          - vault  # Restrict to the vault namespace

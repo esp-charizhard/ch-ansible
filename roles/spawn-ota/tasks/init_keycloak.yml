@@ -17,7 +17,6 @@
         name: postgresql-db
         namespace: keycloak
       spec:
-        serviceName: postgresql-db-service
         selector:
           matchLabels:
             app: postgresql-db
@@ -27,6 +26,7 @@
             labels:
               app: postgresql-db
           spec:
+            serviceAccountName: postgresql-db-service
             containers:
               - name: postgresql-db
                 image: postgres:15
@@ -59,7 +59,7 @@
       spec:
         selector:
           app: postgresql-db
-        type: LoadBalancer
+        type: ClusterIP
         ports:
         - port: 5432
           targetPort: 5432
@@ -110,7 +110,6 @@
         labels:
           app: keycloak
       spec:
-        serviceAccountName: keycloak-admin
         replicas: 1
         selector:
           matchLabels:
@@ -120,16 +119,18 @@
             labels:
               app: keycloak
           spec:
-            
+            serviceAccountName: keycloak-admin
             containers:
               - name: keycloak
                 image: quay.io/keycloak/keycloak:26.1.4
-                args: ["start" ]
+                args:
+                  - "start"
+                  - "--import-realm"
                 env:
-                  - name: KEYCLOAK_ADMIN
+                  - name: KC_BOOTSTRAP_ADMIN_USERNAME
                     value: "admin"
-                  - name: KEYCLOAK_ADMIN_PASSWORD
-                    value: "admin"
+                  - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+                    value: "caca"
                   - name: KC_PROXY_HEADERS
                     value: "xforwarded"
                   - name: KC_HTTP_ENABLED
@@ -138,13 +139,50 @@
                     value: "true"
                   - name: KC_HOSTNAME
                     value: "charizhard-keycloak.duckdns.org"
+#                  - name: KC_DB
+#                    value: "postgres"
+#                  - name: KC_DB_URL
+#                    value: "jdbc:postgresql://postgres-db.keycloak.svc.cluster.local:5432/keycloak"
+#                  - name: KC_DB_USERNAME
+#                    valueFrom:
+#                      secretKeyRef:
+#                        name: keycloak-db-secret
+#                        key: username
+#                  - name: KC_DB_PASSWORD
+#                    valueFrom:
+#                      secretKeyRef:
+#                        name: keycloak-db-secret
+#                        key: password
                 ports:
                   - name: http
                     containerPort: 8080
                 readinessProbe:
                   httpGet:
                     path: /health/ready
-                    port: 9000
+                    port: http
+                  initialDelaySeconds: 20
+                  periodSeconds: 2
+                  successThreshold: 1
+                  timeoutSeconds: 1
+                  failureThreshold: 250
+                livenessProbe:
+                  httpGet:
+                    path: /health/live
+                    port: http
+                  initialDelaySeconds: 20
+                  periodSeconds: 2
+                  successThreshold: 1
+                  timeoutSeconds: 1
+                  failureThreshold: 150
+                startupProbe:
+                  httpGet:
+                    path: /health/ready
+                    port: http
+                  initialDelaySeconds: 60
+                  periodSeconds: 2
+                  successThreshold: 1
+                  timeoutSeconds: 1
+                  failureThreshold: 250
                 volumeMounts:
                   - name: keycloak-config-volume
                     mountPath: /etc/keycloak

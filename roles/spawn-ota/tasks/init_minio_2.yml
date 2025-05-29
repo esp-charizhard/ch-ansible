@@ -73,8 +73,6 @@
             labels:
               app: minio
           spec:
-            imagePullSecrets:
-              - name: dockerhub-image-pull-secret
             volumes:
             - name: storage
               persistentVolumeClaim:

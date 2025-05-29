@@ -1,5 +1,26 @@
 ---
 # Setting up stuff for database
+- name: Create volume for postgres otp
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      kind: PersistentVolume
+      apiVersion: v1
+      metadata:
+        name: "postgres-otp-pv-volume"
+        labels:
+          type: local
+      spec:
+        persistentVolumeReclaimPolicy: Retain
+        storageClassName: local-storage
+        capacity:
+          storage: 1Gi
+        accessModes:
+          - ReadWriteOnce
+        hostPath:
+          path: "/home/{{ ansible_user }}/data/postgres-otp-pv-volume"
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+
 - name: Create PVC for postgres otp
   kubernetes.core.k8s:
     state: present
@@ -8,7 +29,7 @@
       apiVersion: v1
       kind: PersistentVolumeClaim
       metadata:
-        name: postgres-pvc
+        name: postgres-otp-pvc
         namespace: default
       spec:
         accessModes:
@@ -31,12 +52,14 @@
         init.sql: |
           -- Contents of init.sql should be placed here
           -- For example:
-          CREATE
+          CREATE TABLE users (
               id TEXT PRIMARY KEY,
               is_set TEXT,
               mail TEXT NOT NULL,
               valid_until TEXT
           );
+
+          ALTER TABLE users ADD CONSTRAINT users_mail_unique UNIQUE (mail);
 
           CREATE TABLE wg_config (
               id SERIAL PRIMARY KEY,              
@@ -48,14 +71,6 @@
               privkey TEXT NOT NULL,               
               pubkey TEXT NOT NULL                 
           );
-
-
-          INSERT INTO users (id, is_set, mail) VALUES
-          ('123454321', NULL, 'gilles@entreprise.com'),
-          ('147258369', NULL, 'elodie@designhouse.io'),
-          ('159357258', NULL, 'paul@industry.com')
-          ON CONFLICT (id) DO NOTHING; 
-
 
 - name: Create Deployment for postgres otp
   kubernetes.core.k8s:
@@ -79,7 +94,7 @@
             labels:
               app: postgres
           spec:
-            ServiceAccountName: postgres-otp-admin
+            serviceAccountName: postgres-otp-admin
             containers:
             - name: postgres
               image: postgres:15
@@ -100,7 +115,7 @@
             volumes:
             - name: postgres-data
               persistentVolumeClaim:
-                claimName: postgres-pvc
+                claimName: postgres-otp-pvc
             - name: init-script
               configMap:
                 name: postgres-init-script
@@ -124,6 +139,44 @@
           targetPort: 5432
         type: ClusterIP
 
+- name: Run one-shot job to init postgres schema
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    definition:
+      apiVersion: batch/v1
+      kind: Job
+      metadata:
+        name: init-postgres-schema
+        namespace: default
+      spec:
+        template:
+          spec:
+            restartPolicy: Never
+            containers:
+            - name: init-schema
+              image: postgres:15
+              command:
+                - sh
+                - -c
+                - |
+                  until pg_isready -h postgres-svc -U {{ POSTGRES_USER }}; do sleep 1; done &&
+                  psql -h postgres-svc -U {{ POSTGRES_USER }} -d {{ POSTGRES_DB }} -f /docker-entrypoint-initdb.d/init.sql
+              env:
+              - name: POSTGRES_USER
+                value: "{{ POSTGRES_USER }}"
+              - name: PGPASSWORD
+                value: "{{ POSTGRES_PASSWORD }}"
+              - name: POSTGRES_DB
+                value: "{{ POSTGRES_DB }}"
+              volumeMounts:
+              - name: init-script
+                mountPath: /docker-entrypoint-initdb.d
+            volumes:
+            - name: init-script
+              configMap:
+                name: postgres-init-script
+              
 # Setting up otp microservice
 - name: Create Secret for certificates
   kubernetes.core.k8s:
@@ -154,7 +207,6 @@
         labels:
           app: charizhard-otp
       spec:
-        serviceAccountName: otp-admin
         replicas: 1
         selector:
           matchLabels:
@@ -164,7 +216,13 @@
             labels:
               app: charizhard-otp
           spec:
+            serviceAccountName: otp-admin
             containers:
+              - name: debug-sniffer
+                image: nicolaka/netshoot
+                command: ["sleep", "infinity"]
+                securityContext:
+                  privileged: true
               - name: charizhard-otp
                 image: asthafinito/charizhard-otp
                 imagePullPolicy: Always
@@ -175,8 +233,8 @@
                     name: certificates
                 resources:
                   limits:
-                    cpu: 500m
-                    memory: 2Gi
+                    cpu: "1"
+                    memory: 4Gi
                   requests:
                     cpu: 500m
                     memory: 50Mi

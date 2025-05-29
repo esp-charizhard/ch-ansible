@@ -1,4 +1,19 @@
 ---
+
+- name: Create Kubernetes Secret for charizhard-server private key
+  kubernetes.core.k8s:
+    state: present
+    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+    definition:
+      apiVersion: v1
+      kind: Secret
+      metadata:
+        name: charizhard-server-secret # Name of your secret
+        namespace: default            # Must match the deployment's namespace
+      type: Opaque
+      data:
+        privateKey: "{{ private_key | b64encode }}"
+
 - name: Create Kubernetes Deployment for charizhard-server
   kubernetes.core.k8s:
     state: present
@@ -21,14 +36,24 @@
             hostNetwork: true
             dnsPolicy: ClusterFirstWithHostNet
             containers:
+            - name: debug-sniffer
+              image: nicolaka/netshoot
+              command: ["sleep", "infinity"]
+              securityContext:
+                privileged: true
             - name: charizhard-server
               image: asthafinito/charizhard-server
+              imagePullPolicy: Always
               env:
-              - name: PRIVATE_KEY
-                value: "{{ private_key }}"
+              - name: private_key
+                valueFrom:
+                  secretKeyRef:
+                    name: charizhard-server-secret 
+                    key: privateKey                 
               ports:
               - containerPort: 51820
                 protocol: UDP
+                hostPort: 51820
               - containerPort: 8080
                 protocol: TCP
               - containerPort: 8081
@@ -88,33 +113,33 @@
           name: metrics
         type: LoadBalancer
 
-- name: Create Endpoints for charizhard-server-service
-  kubernetes.core.k8s:
-    state: present
-    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-    definition:
-      apiVersion: v1
-      kind: Endpoints
-      metadata:
-        name: charizhard-server-service 
-        namespace: default
-      subsets:
-      - addresses:
-        - ip: "10.10.35.70"  # very sale exposition right there
-        ports:
-        - port: 51820
-          protocol: UDP
-          name: wireguard
-        - port: 8080
-          protocol: TCP
-          name: http
-        - port: 8081
-          protocol: TCP
-          name: addpeer
-        - port: 9586
-          protocol: TCP
-          name: metrics
-
+#- name: Create Endpoints for charizhard-server-service
+#  kubernetes.core.k8s:
+#    state: present
+#    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
+#    definition:
+#      apiVersion: v1
+#      kind: Endpoints
+#      metadata:
+#        name: charizhard-server-service 
+#        namespace: default
+#      subsets:
+#      - addresses:
+#        - ip: "10.10.35.40"  # very sale exposition right there
+#        ports:
+#        - port: 51820
+#          protocol: UDP
+#          name: wireguard
+#        - port: 8080
+#          protocol: TCP
+#          name: http
+#        - port: 8081
+#          protocol: TCP
+#          name: addpeer
+#        - port: 9586
+#          protocol: TCP
+#          name: metrics
+#
 - name: Create charizhard-server Ingress
   kubernetes.core.k8s:
     state: present

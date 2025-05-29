@@ -35,6 +35,18 @@ microservices:
       - apiGroups: ["networking.k8s.io"]
         resources: ["ingresses"]
         verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - name: wireguard
+    namespace: default
+    rules:
+      - apiGroups: [""]
+        resources: ["pods", "services", "secrets"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["apps"]
+        resources: ["deployments"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+      - apiGroups: ["networking.k8s.io"]
+        resources: ["ingresses"]
+        verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - name: postgres-otp
     namespace: default
     rules:
