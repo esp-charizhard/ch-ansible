@@ -1,5 +1,4 @@
 ---
-
 - name: Create Kubernetes Secret for charizhard-server private key
   kubernetes.core.k8s:
     state: present
@@ -8,8 +7,8 @@
       apiVersion: v1
       kind: Secret
       metadata:
-        name: charizhard-server-secret # Name of your secret
-        namespace: default            # Must match the deployment's namespace
+        name: charizhard-server-secret
+        namespace: default            
       type: Opaque
       data:
         privateKey: "{{ private_key | b64encode }}"
@@ -80,7 +79,6 @@
                 memory: 256Mi
     kubeconfig: "/home/{{ ansible_user }}/.kube/config"
 
-
 - name: Create LoadBalancer service for charizhard-server
   kubernetes.core.k8s:
     state: present
@@ -113,33 +111,6 @@
           name: metrics
         type: LoadBalancer
 
-#- name: Create Endpoints for charizhard-server-service
-#  kubernetes.core.k8s:
-#    state: present
-#    kubeconfig: "/home/{{ ansible_user }}/.kube/config"
-#    definition:
-#      apiVersion: v1
-#      kind: Endpoints
-#      metadata:
-#        name: charizhard-server-service 
-#        namespace: default
-#      subsets:
-#      - addresses:
-#        - ip: "10.10.35.40"  # very sale exposition right there
-#        ports:
-#        - port: 51820
-#          protocol: UDP
-#          name: wireguard
-#        - port: 8080
-#          protocol: TCP
-#          name: http
-#        - port: 8081
-#          protocol: TCP
-#          name: addpeer
-#        - port: 9586
-#          protocol: TCP
-#          name: metrics
-#
 - name: Create charizhard-server Ingress
   kubernetes.core.k8s:
     state: present
